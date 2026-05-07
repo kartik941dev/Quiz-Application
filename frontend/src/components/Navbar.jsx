@@ -44,29 +44,7 @@ const Navbar = () => {
       </Link>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-        {user.role === 'teacher' ? (
-          <>
-            <ProfileDropdown />
-          </>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem' }}>Student: <strong>{user.name}</strong></span>
-            <button 
-              onClick={handleLogout} 
-              style={{
-                background: 'rgba(255, 74, 74, 0.1)',
-                color: '#ff4a4a',
-                border: '1px solid rgba(255, 74, 74, 0.2)',
-                padding: '0.4rem 0.8rem',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '0.85rem'
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        )}
+        <ProfileDropdown />
       </div>
     </nav>
   );

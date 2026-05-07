@@ -8,7 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkUser = async () => {
+    const checkToken = async () => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
@@ -16,11 +16,12 @@ export const AuthProvider = ({ children }) => {
           setUser(res.data.user);
         } catch (err) {
           localStorage.removeItem('token');
+          setUser(null);
         }
       }
       setLoading(false);
     };
-    checkUser();
+    checkToken();
   }, []);
 
   const login = async (email, password) => {

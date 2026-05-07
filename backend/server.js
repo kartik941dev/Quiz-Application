@@ -11,11 +11,16 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true
+}));
 app.use(express.json());
 
 // Routes
@@ -41,24 +46,29 @@ app.get('/', (req, res) => {
 // Setup MongoDB connection
 const connectDB = async () => {
   try {
-    const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/quiz-app';
-    if (MONGO_URI.includes('127.0.0.1') || MONGO_URI.includes('localhost')) {
-      const { MongoMemoryServer } = require('mongodb-memory-server');
-      const mongoServer = await MongoMemoryServer.create();
-      const uri = mongoServer.getUri();
-      await mongoose.connect(uri);
-      console.log('✅ In-Memory MongoDB Connected successfully for Local Development!');
-    } else {
-      await mongoose.connect(MONGO_URI);
-      console.log('✅ MongoDB Connected successfully!');
+    const MONGO_URI = process.env.MONGO_URI;
+    if (!MONGO_URI) {
+      throw new Error('MONGO_URI is not defined in .env');
     }
+    await mongoose.connect(MONGO_URI);
+    console.log('✅ MongoDB Connected successfully (Atlas)');
   } catch (err) {
-    console.error('❌ MongoDB Connection Error:', err);
+    console.error('❌ MongoDB Connection Error:', err.message);
+    process.exit(1); 
   }
 };
-if (require.main === module || process.env.NODE_ENV !== 'test') {
-  connectDB();
-}
+
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ MongoDB Disconnected. Attempting to reconnect...');
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('✅ MongoDB Reconnected successfully.');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB Runtime Error:', err);
+});
 
 // Initialize Socket.io logic
 const initQuizSockets = require('./src/sockets/quizSockets');
@@ -67,9 +77,20 @@ initQuizSockets(io);
 const PORT = process.env.PORT || 5001;
 
 if (require.main === module) {
-  httpServer.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  connectDB().then(() => {
+    httpServer.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
   });
 }
+
+// GLOBAL ERROR HANDLING (Task 7)
+process.on('uncaughtException', (err) => {
+  console.error('🔥 CRITICAL: Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🌊 CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 module.exports = { app, httpServer };

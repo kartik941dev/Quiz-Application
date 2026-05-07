@@ -17,6 +17,7 @@ const TeacherLiveQuiz = () => {
   const [studentAnswers, setStudentAnswers] = useState({}); // userId -> { selectedOptionIndex, isCorrect }
   const [cheatingAlerts, setCheatingAlerts] = useState([]);
   const [message, setMessage] = useState('');
+  const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Initialize Socket and fetch Quiz
@@ -35,7 +36,8 @@ const TeacherLiveQuiz = () => {
     fetchQuiz();
 
     const token = localStorage.getItem('token');
-    const newSocket = io('http://localhost:5001', { auth: { token } });
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+    const newSocket = io(socketUrl, { auth: { token } });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
@@ -68,6 +70,10 @@ const TeacherLiveQuiz = () => {
 
     newSocket.on('cheating-alert', (data) => {
       setCheatingAlerts(prev => [data, ...prev].slice(0, 10));
+    });
+
+    newSocket.on('timer', (data) => {
+      setTimeLeft(data.timeLeft);
     });
 
     newSocket.on('suspicious-alert', (data) => {
@@ -125,8 +131,11 @@ const TeacherLiveQuiz = () => {
         {/* Main Control Panel */}
         <div className="glass-card">
           <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem', color: '#646cff' }}>Hosting: {quiz.title}</h2>
-          <div style={{ fontSize: '1.1rem', marginBottom: '1.5rem', padding: '0.75rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', textAlign: 'center' }}>
-            <strong>Join Code:</strong> <span style={{ fontSize: '1.5rem', letterSpacing: '2px', color: '#4caf50', marginLeft: '0.5rem' }}>{quiz.joinCode}</span>
+          <div style={{ fontSize: '1.1rem', marginBottom: '1.5rem', padding: '0.75rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '2rem' }}>
+            <div><strong>Join Code:</strong> <span style={{ fontSize: '1.5rem', letterSpacing: '2px', color: '#4caf50', marginLeft: '0.5rem' }}>{quiz.joinCode}</span></div>
+            {currentQuestionIndex >= 0 && (
+              <div style={{ fontSize: '1.5rem', color: timeLeft <= 5 ? '#ff4a4a' : 'white' }}>⏳ {timeLeft}s</div>
+            )}
           </div>
 
           {currentQuestionIndex === -1 ? (
@@ -140,12 +149,63 @@ const TeacherLiveQuiz = () => {
           ) : (
             <div style={{ textAlign: 'left' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h3>Question {currentQuestionIndex + 1} of {quiz.questions.length}</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <h3 style={{ margin: 0 }}>Question {currentQuestionIndex + 1} of {quiz.questions.length}</h3>
+                  <div style={{ 
+                    background: 'rgba(59, 130, 246, 0.2)', 
+                    padding: '0.4rem 0.8rem', 
+                    borderRadius: '6px', 
+                    color: '#3b82f6', 
+                    fontWeight: 'bold',
+                    fontSize: '0.9rem',
+                    border: '1px solid rgba(59, 130, 246, 0.3)'
+                  }}>
+                    Q {currentQuestionIndex + 1} / {quiz.questions.length}
+                  </div>
+                </div>
                 {isFinished ? (
                   <button className="btn" onClick={handleEndQuiz} style={{ width: 'auto', background: '#ff4a4a', marginTop: 0 }}>End Quiz</button>
                 ) : (
                   <button className="btn" onClick={handleNextQuestion} style={{ width: 'auto', marginTop: 0 }}>Next Question</button>
                 )}
+              </div>
+
+              {/* Mini Palette for Teacher Overview */}
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, 30px)', 
+                gap: '8px', 
+                marginBottom: '1.5rem',
+                padding: '0.75rem',
+                background: 'rgba(0,0,0,0.2)',
+                borderRadius: '8px'
+              }}>
+                {quiz.questions.map((_, idx) => {
+                  const isCurrent = idx === currentQuestionIndex;
+                  const isPast = idx < currentQuestionIndex;
+                  
+                  return (
+                    <div 
+                      key={idx}
+                      style={{
+                        width: '30px',
+                        height: '30px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        backgroundColor: isCurrent ? '#3b82f6' : (isPast ? '#22c55e' : '#1e293b'),
+                        color: 'white',
+                        border: isCurrent ? '2px solid white' : '1px solid rgba(255,255,255,0.1)',
+                        opacity: isPast || isCurrent ? 1 : 0.5
+                      }}
+                    >
+                      {idx + 1}
+                    </div>
+                  );
+                })}
               </div>
 
               <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '1.5rem' }}>

@@ -2,6 +2,7 @@ import React, { useContext, useState } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useRef } from 'react';
 
 const TeacherDashboard = () => {
   const { user, logout } = useContext(AuthContext);
@@ -10,12 +11,13 @@ const TeacherDashboard = () => {
   const [title, setTitle] = useState('');
   const [leaderboardInterval, setLeaderboardInterval] = useState(1);
   const [questions, setQuestions] = useState([
-    { text: '', options: ['', '', '', ''], correctOptionIndex: 0, timeLimit: 30, explanation: '' }
+    { text: '', options: ['', '', '', ''], correctOptionIndex: 0, timeLimit: 30, explanation: '', marks: 1, negativeMarks: 0 }
   ]);
   const [statusMsg, setStatusMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [negativeEnabled, setNegativeEnabled] = useState(false);
   const [negativeValue, setNegativeValue] = useState(0.25);
+  const formRef = useRef(null);
 
   const handleLogout = () => {
     logout();
@@ -35,7 +37,7 @@ const TeacherDashboard = () => {
   };
 
   const addQuestion = () => {
-    setQuestions([...questions, { text: '', options: ['', '', '', ''], correctOptionIndex: 0, timeLimit: 30, explanation: '' }]);
+    setQuestions([...questions, { text: '', options: ['', '', '', ''], correctOptionIndex: 0, timeLimit: 30, explanation: '', marks: 1, negativeMarks: 0 }]);
   };
 
   const removeQuestion = (index) => {
@@ -55,21 +57,51 @@ const TeacherDashboard = () => {
         questions: questions.map(q => ({
           ...q,
           correctOptionIndex: Number(q.correctOptionIndex),
-          timeLimit: Number(q.timeLimit)
+          timeLimit: Number(q.timeLimit),
+          marks: Number(q.marks),
+          negativeMarks: Number(q.negativeMarks)
         })),
-        negativeMarking: {
-          enabled: negativeEnabled,
-          value: Number(negativeValue)
-        }
+        negativeMarkingEnabled: negativeEnabled
       });
       
       setStatusMsg(`✅ Success! Quiz "${res.data.quiz.title}" stored in DB. Join Code: ${res.data.quiz.joinCode}`);
       // Reset form
       setTitle('');
       setLeaderboardInterval(1);
-      setQuestions([{ text: '', options: ['', '', '', ''], correctOptionIndex: 0, timeLimit: 30, explanation: '' }]);
+      setQuestions([{ text: '', options: ['', '', '', ''], correctOptionIndex: 0, timeLimit: 30, explanation: '', marks: 1, negativeMarks: 0 }]);
     } catch (err) {
-      setStatusMsg(`❌ Error: ${err.response?.data?.message || 'Failed to create quiz'}`);
+      setStatusMsg(`❌ Error: ${err.response?.data?.message || 'Network error: Could not connect to backend server'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDuplicate = async (quizId) => {
+    try {
+      setIsLoading(true);
+      const res = await api.get(`/quiz/${quizId}/full`);
+      const fullQuiz = res.data.quiz;
+
+      // Prefill form
+      setTitle(`${fullQuiz.title} (Copy)`);
+      setLeaderboardInterval(fullQuiz.leaderboardInterval);
+      setNegativeEnabled(fullQuiz.negativeMarkingEnabled);
+      setQuestions(fullQuiz.questions.map(q => ({
+        text: q.text,
+        options: q.options,
+        correctOptionIndex: q.correctOptionIndex,
+        timeLimit: q.timeLimit,
+        explanation: q.explanation || '',
+        marks: q.marks || 1,
+        negativeMarks: q.negativeMarks || 0
+      })));
+
+      // Scroll to form
+      formRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setStatusMsg('📋 Quiz data copied to form. You can edit it now before saving.');
+    } catch (err) {
+      console.error('Failed to duplicate quiz', err);
+      setStatusMsg('❌ Failed to fetch quiz details for duplication');
     } finally {
       setIsLoading(false);
     }
@@ -140,6 +172,9 @@ const TeacherDashboard = () => {
                   <button type="button" className="btn" onClick={() => openDoubtsForQuiz(q)} style={{ flex: 1, padding: '0.5rem', background: 'rgba(255, 193, 7, 0.25)', color: '#ffc107', border: '1px solid rgba(255, 193, 7, 0.4)' }}>
                     View Doubts
                   </button>
+                  <button type="button" className="btn" onClick={() => handleDuplicate(q._id)} style={{ flex: 1, padding: '0.5rem', background: 'rgba(100, 108, 255, 0.2)', border: '1px solid rgba(100, 108, 255, 0.4)' }}>
+                    Duplicate
+                  </button>
                 </div>
               </div>
             ))}
@@ -147,7 +182,7 @@ const TeacherDashboard = () => {
         )}
       </div>
 
-      <div className="glass-card" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+      <div className="glass-card" ref={formRef} style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
         <h3 style={{ marginTop: 0, color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>Create New Quiz</h3>
         
         {statusMsg && (
@@ -196,18 +231,8 @@ const TeacherDashboard = () => {
             </div>
             
             {negativeEnabled && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <label>Penalty Value:</label>
-                <input 
-                  type="number" 
-                  step="0.05" 
-                  min="0" 
-                  className="form-control" 
-                  value={negativeValue} 
-                  onChange={(e) => setNegativeValue(e.target.value)} 
-                  style={{ width: '100px', textAlign: 'center' }}
-                />
-                <small style={{ color: 'rgba(255,255,255,0.5)' }}>e.g. 0.25</small>
+              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem' }}>
+                💡 You can now set individual negative marks for each question below.
               </div>
             )}
           </div>
@@ -259,16 +284,46 @@ const TeacherDashboard = () => {
                 ))}
               </div>
 
-              <div className="form-group" style={{ width: '200px' }}>
-                <label>Time Limit (Seconds)</label>
-                <input
-                  type="number"
-                  min="5"
-                  className="form-control"
-                  value={q.timeLimit}
-                  onChange={(e) => handleQuestionChange(qIndex, 'timeLimit', e.target.value)}
-                  required
-                />
+              <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                <div className="form-group" style={{ width: '150px' }}>
+                  <label>Marks (+)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-control"
+                    value={q.marks}
+                    onChange={(e) => handleQuestionChange(qIndex, 'marks', e.target.value)}
+                    required
+                  />
+                </div>
+
+                {negativeEnabled && (
+                  <div className="form-group" style={{ width: '150px' }}>
+                    <label>Negative Marks (-)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.25"
+                      className="form-control"
+                      value={q.negativeMarks}
+                      onChange={(e) => handleQuestionChange(qIndex, 'negativeMarks', e.target.value)}
+                      required
+                      style={{ color: '#ff4a4a' }}
+                    />
+                  </div>
+                )}
+
+                <div className="form-group" style={{ width: '200px' }}>
+                  <label>Time Limit (Seconds)</label>
+                  <input
+                    type="number"
+                    min="5"
+                    className="form-control"
+                    value={q.timeLimit}
+                    onChange={(e) => handleQuestionChange(qIndex, 'timeLimit', e.target.value)}
+                    required
+                  />
+                </div>
               </div>
 
               <div className="form-group">

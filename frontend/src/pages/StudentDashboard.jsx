@@ -23,6 +23,7 @@ const StudentDashboard = () => {
         }
       } catch (err) {
         console.error('Failed to load stats', err);
+        setError('Network error: Could not connect to backend server');
       } finally {
         setLoadingStats(false);
       }
@@ -48,7 +49,7 @@ const StudentDashboard = () => {
         navigate(`/quiz/${res.data.quizId}`);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to join quiz');
+      setError(err.response?.data?.message || 'Network error: Could not connect to backend server');
     } finally {
       setIsLoading(false);
     }

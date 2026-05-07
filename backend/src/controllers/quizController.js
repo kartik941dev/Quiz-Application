@@ -9,7 +9,7 @@ const generateJoinCode = () => {
 
 exports.createQuiz = async (req, res) => {
   try {
-    const { title, leaderboardInterval, questions } = req.body;
+    const { title, leaderboardInterval, questions, negativeMarkingEnabled } = req.body;
 
     if (!title || !questions || questions.length === 0) {
       return res.status(400).json({ success: false, message: 'Please provide a title and at least one question' });
@@ -27,7 +27,8 @@ exports.createQuiz = async (req, res) => {
         joinCode,
         teacherId: req.user.userId,
         leaderboardInterval: leaderboardInterval || 1,
-        questions
+        questions,
+        negativeMarkingEnabled: negativeMarkingEnabled || false
       });
 
       try {
@@ -59,6 +60,74 @@ exports.getTeacherQuizzes = async (req, res) => {
     res.status(200).json({ success: true, quizzes });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch quizzes' });
+  }
+};
+
+exports.getFullQuiz = async (req, res) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+    
+    // Authorization check: Only the teacher who created it can get full details
+    if (quiz.teacherId.toString() !== req.user.userId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    res.status(200).json({ success: true, quiz });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+exports.duplicateQuiz = async (req, res) => {
+  try {
+    const originalQuiz = await Quiz.findById(req.params.id);
+    if (!originalQuiz) return res.status(404).json({ success: false, message: 'Original quiz not found' });
+
+    // Authorization check
+    if (originalQuiz.teacherId.toString() !== req.user.userId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    let joinCode;
+    let newQuiz;
+    let attempts = 0;
+
+    const quizData = originalQuiz.toObject();
+    delete quizData._id;
+    delete quizData.createdAt;
+    delete quizData.updatedAt;
+    
+    quizData.title = `${quizData.title} (Copy)`;
+    quizData.teacherId = req.user.userId;
+
+    // Loop to handle joinCode collisions
+    while (attempts < 5) {
+      joinCode = generateJoinCode();
+      quizData.joinCode = joinCode;
+      
+      newQuiz = new Quiz(quizData);
+
+      try {
+        await newQuiz.save();
+        break; // Successfully saved
+      } catch (err) {
+        if (err.code === 11000 && err.keyPattern && err.keyPattern.joinCode) {
+          attempts++;
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (attempts >= 5) {
+      return res.status(500).json({ success: false, message: 'Failed to generate unique join code' });
+    }
+
+    res.status(201).json({ success: true, message: 'Quiz duplicated successfully', quiz: newQuiz });
+  } catch (err) {
+    console.error('[QUIZ] Duplicate error:', err);
+    res.status(500).json({ success: false, message: 'Failed to duplicate quiz' });
   }
 };
 
@@ -131,7 +200,8 @@ exports.getQuizForStudent = async (req, res) => {
         _id: q._id,
         text: q.text,
         options: q.options,
-        timeLimit: q.timeLimit
+        timeLimit: q.timeLimit,
+        marks: q.marks
       }))
     };
 
@@ -159,13 +229,21 @@ exports.submitQuiz = async (req, res) => {
 
     quiz.questions.forEach(q => {
       const studentAnswer = answers.find(a => a.questionId === q._id.toString());
-      if (studentAnswer && studentAnswer.selectedOptionIndex === q.correctOptionIndex) {
-        score += 1;
+      const isCorrect = studentAnswer && studentAnswer.selectedOptionIndex === q.correctOptionIndex;
+      const marksAwarded = isCorrect ? (q.marks || 1) : (quiz.negativeMarkingEnabled ? -(q.negativeMarks || 0) : 0);
+
+      if (isCorrect) {
+        score += q.marks || 1;
+      } else if (studentAnswer && quiz.negativeMarkingEnabled) {
+        score -= q.negativeMarks || 0;
       }
+      
       if (studentAnswer) {
         processedAnswers.push({
           questionId: q._id,
-          selectedOptionIndex: studentAnswer.selectedOptionIndex
+          selectedOptionIndex: studentAnswer.selectedOptionIndex,
+          isCorrect,
+          marksAwarded
         });
       }
     });
@@ -206,6 +284,9 @@ exports.getQuizResults = async (req, res) => {
     // Merge data for frontend convenience
     const results = quiz.questions.map(q => {
       const studentAnswer = attempt.answers.find(a => a.questionId.toString() === q._id.toString());
+      
+      // TRUST THE BACKEND STORED VALUE (studentAnswer.isCorrect)
+      // This is crucial because of shuffling!
       return {
         _id: q._id,
         text: q.text,
@@ -214,14 +295,20 @@ exports.getQuizResults = async (req, res) => {
         explanation: q.explanation,
         correctOptionIndex: q.correctOptionIndex,
         userSelectedOptionIndex: studentAnswer ? studentAnswer.selectedOptionIndex : null,
-        isCorrect: studentAnswer ? studentAnswer.selectedOptionIndex === q.correctOptionIndex : false
+        isCorrect: studentAnswer ? studentAnswer.isCorrect : false,
+        marksAwarded: studentAnswer ? studentAnswer.marksAwarded : 0,
+        questionMarks: q.marks,
+        questionNegativeMarks: q.negativeMarks
       };
     });
+
+    const totalMarks = quiz.questions.reduce((sum, q) => sum + (q.marks || 1), 0);
 
     res.status(200).json({
       success: true,
       score: attempt.score,
       totalQuestions: attempt.totalQuestions,
+      totalMarks,
       results
     });
   } catch (err) {

@@ -17,9 +17,11 @@ exports.getStudentDashboardStats = async (req, res) => {
     let bestScore = 0;
     
     attempts.forEach(a => {
-      const percentage = (a.score / a.totalQuestions) * 100;
-      totalPercentage += percentage;
-      if (percentage > bestScore) bestScore = percentage;
+      if (a.totalQuestions > 0) {
+        const percentage = (a.score / a.totalQuestions) * 100;
+        totalPercentage += percentage;
+        if (percentage > bestScore) bestScore = percentage;
+      }
     });
 
     const avgScore = totalQuizzes > 0 ? parseFloat((totalPercentage / totalQuizzes).toFixed(1)) : 0;
@@ -71,7 +73,7 @@ exports.getStudentDashboardStats = async (req, res) => {
           score: a.score,
           totalQuestions: a.totalQuestions,
           date: a.createdAt,
-          percentage: ((a.score / a.totalQuestions) * 100).toFixed(1)
+          percentage: a.totalQuestions > 0 ? ((a.score / a.totalQuestions) * 100).toFixed(1) : "0.0"
         })),
         badges,
         leaderboard

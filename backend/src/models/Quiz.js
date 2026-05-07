@@ -23,7 +23,9 @@ const questionSchema = new mongoose.Schema({
     ]
   },
   timeLimit: { type: Number, required: true, default: 30 },
-  explanation: { type: String, default: '' }
+  explanation: { type: String, default: '' },
+  marks: { type: Number, default: 1, min: 1 },
+  negativeMarks: { type: Number, default: 0, min: 0 }
 }, { _id: true }); // Auto-generate _id for each question to easily reference them in live events
 
 const quizSchema = new mongoose.Schema({
@@ -37,13 +39,16 @@ const quizSchema = new mongoose.Schema({
       {
         validator: function(v) { return v.length > 0; },
         message: 'A quiz must contain at least one question.'
+      },
+      {
+        validator: function(v) {
+          return v.every(q => q.negativeMarks <= q.marks);
+        },
+        message: 'Negative marks cannot exceed question marks.'
       }
     ]
   },
-  negativeMarking: {
-    enabled: { type: Boolean, default: false },
-    value: { type: Number, default: 0 }
-  }
+  negativeMarkingEnabled: { type: Boolean, default: false }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Quiz', quizSchema);

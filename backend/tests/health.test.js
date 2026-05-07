@@ -1,19 +1,18 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const dotenv = require('dotenv');
+dotenv.config();
 const { app } = require('../server');
 
-let mongoServer;
-
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
-  const uri = mongoServer.getUri();
-  await mongoose.connect(uri);
+  if (!process.env.MONGO_URI) throw new Error('MONGO_URI must be defined for tests');
+  await mongoose.connect(process.env.MONGO_URI);
 });
 
 afterAll(async () => {
+  // Optional: Clean up test data if using a separate test DB
+  // await mongoose.connection.db.dropDatabase(); 
   await mongoose.disconnect();
-  await mongoServer.stop();
 });
 
 describe('Backend Full Health & Credibility Tests', () => {
@@ -44,6 +43,25 @@ describe('Backend Full Health & Credibility Tests', () => {
       });
       studentToken = res.body.token;
       expect(studentToken).toBeDefined();
+    });
+
+    it('should change password successfully', async () => {
+      const res = await request(app)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          currentPassword: 'password',
+          newPassword: 'newpassword123'
+        });
+      expect(res.statusCode).toBe(200);
+      expect(res.body.message).toBe('Password updated successfully');
+
+      // Verify login with new password
+      const loginRes = await request(app).post('/api/auth/login').send({
+        email: 's@s.com', password: 'newpassword123'
+      });
+      expect(loginRes.statusCode).toBe(200);
+      studentToken = loginRes.body.token; // Update token for subsequent tests
     });
   });
 

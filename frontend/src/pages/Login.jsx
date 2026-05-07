@@ -20,7 +20,7 @@ const Login = () => {
         navigate('/student-dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      setError(err.response?.data?.message || 'Network error: Could not connect to backend server');
     }
   };
 

@@ -6,7 +6,9 @@ const quizAttemptSchema = new mongoose.Schema({
   answers: [{
     questionId: { type: mongoose.Schema.Types.ObjectId, required: true },
     selectedOptionIndex: { type: Number, required: true },
-    timeTaken: { type: Number, default: 0 } // Time in seconds
+    timeTaken: { type: Number, default: 0 }, // Time in seconds
+    isCorrect: { type: Boolean, default: false },
+    marksAwarded: { type: Number, default: 0 }
   }],
   score: { type: Number, required: true },
   totalQuestions: { type: Number, required: true },

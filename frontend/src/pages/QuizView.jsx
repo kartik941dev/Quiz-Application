@@ -14,6 +14,8 @@ const QuizView = () => {
   const [leaderboard, setLeaderboard] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [questionStatus, setQuestionStatus] = useState({}); // { [index]: 'answered' | 'missed' }
+
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -41,7 +43,8 @@ const QuizView = () => {
 
     // 2. Connect Socket
     const token = localStorage.getItem('token');
-    const newSocket = io('http://localhost:5001', { auth: { token } });
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+    const newSocket = io(socketUrl, { auth: { token } });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
@@ -68,8 +71,11 @@ const QuizView = () => {
       setTimeLeft(0);
       setHasSubmitted(true); // Lock selections / Auto Submit
       
-      // Auto Submit if nothing selected
-      // But we just lock the UI; the backend automatically considers missing answers as 0 score
+      setQuestionStatus(prev => {
+        // Only mark as missed if it hasn't been answered yet
+        if (prev[currentQuestionIndex] === 'answered') return prev;
+        return { ...prev, [currentQuestionIndex]: 'missed' };
+      });
     });
 
     newSocket.on('leaderboard-update', (data) => {
@@ -93,9 +99,8 @@ const QuizView = () => {
     newSocket.on('restore-state', (data) => {
       console.log('Restoring state:', data);
       setCurrentQuestionIndex(data.questionIndex);
-      setQuestion(data.question);
-      setTimeLeft(data.timeLeft);
-      setScore(data.score);
+      setCurrentQuestion(data.question);
+      setTimeLeft(data.timeLeft || 0);
     });
 
     newSocket.on('rejoin-denied', (data) => {
@@ -179,6 +184,7 @@ const QuizView = () => {
         questionIndex: currentQuestionIndex,
         selectedOptionIndex: index
       });
+      setQuestionStatus(prev => ({ ...prev, [currentQuestionIndex]: 'answered' }));
     }
   };
 
@@ -205,12 +211,65 @@ const QuizView = () => {
               <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: timeLeft <= 5 ? '#ff4a4a' : 'white' }}>
                 ⏳ {timeLeft}s
               </span>
-              <span style={{ background: 'rgba(100, 108, 255, 0.2)', padding: '0.5rem 1rem', borderRadius: '20px', color: '#646cff', fontWeight: 'bold' }}>
-                Q {currentQuestionIndex + 1} / {quiz.questions.length}
+              <span style={{ 
+                background: 'rgba(59, 130, 246, 0.2)', 
+                padding: '0.5rem 1rem', 
+                borderRadius: '8px', 
+                color: '#3b82f6', 
+                fontWeight: 'bold',
+                border: '1px solid rgba(59, 130, 246, 0.4)'
+              }}>
+                Q {currentQuestionIndex + 1} / {quiz.questions.length} ({currentQuestion?.marks || 1} M)
               </span>
             </div>
           )}
         </div>
+
+        {/* Question Palette */}
+        {currentQuestionIndex >= 0 && !leaderboard && (
+          <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>Question Palette</p>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, 40px)', 
+              gap: '10px',
+              justifyContent: 'center'
+            }}>
+              {quiz.questions.map((_, idx) => {
+                const status = questionStatus[idx];
+                const isCurrent = idx === currentQuestionIndex;
+                
+                let bgColor = '#1e293b';
+                if (status === 'answered') bgColor = '#22c55e';
+                else if (status === 'missed') bgColor = '#ef4444';
+
+                return (
+                  <div 
+                    key={idx}
+                    className="question-box"
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '6px',
+                      fontWeight: 'bold',
+                      backgroundColor: bgColor,
+                      color: 'white',
+                      border: isCurrent ? '2px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
+                      transition: 'all 0.2s ease',
+                      fontSize: '0.9rem',
+                      boxShadow: isCurrent ? '0 0 10px rgba(59, 130, 246, 0.5)' : 'none'
+                    }}
+                  >
+                    {idx + 1}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Dynamic Content */}
         {leaderboard ? (
