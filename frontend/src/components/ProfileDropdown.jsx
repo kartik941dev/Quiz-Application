@@ -90,7 +90,7 @@ const ProfileDropdown = () => {
             <>
               <MenuItem onClick={() => handleAction('/teacher-dashboard')} icon="➕" label="Create Quiz" />
               <MenuItem onClick={() => handleAction('/teacher-dashboard')} icon="📚" label="My Quizzes" />
-              <MenuItem onClick={() => handleAction('/analytics')} icon="📈" label="Analytics" />
+              <MenuItem onClick={() => handleAction('/teacher/analytics')} icon="📈" label="Analytics" />
             </>
           ) : (
             <>

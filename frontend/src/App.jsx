@@ -9,6 +9,7 @@ import StudentDashboard from './pages/StudentDashboard';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import QuizView from './pages/QuizView';
 import ResultsView from './pages/ResultsView';
+import TeacherAnalyticsOverview from './pages/TeacherAnalyticsOverview';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -39,6 +40,12 @@ function App() {
             <Route path="/analytics/:id" element={
               <ProtectedRoute allowedRoles={['teacher']}>
                 <AnalyticsDashboard />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/teacher/analytics" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <TeacherAnalyticsOverview />
               </ProtectedRoute>
             } />
             

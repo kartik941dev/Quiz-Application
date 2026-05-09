@@ -106,6 +106,26 @@ const TeacherDashboard = () => {
       setIsLoading(false);
     }
   };
+  
+  const handleCloseQuiz = async (quizId) => {
+    if (!window.confirm("Are you sure you want to PERMANENTLY close this quiz? This action cannot be undone and no students will be able to join or host this quiz again.")) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await api.patch(`/quiz/${quizId}/close`);
+      setStatusMsg('✅ Quiz permanently closed successfully.');
+      // Refetch quizzes to update UI
+      const res = await api.get('/quiz/my-quizzes');
+      setQuizzes(res.data.quizzes);
+    } catch (err) {
+      console.error('Failed to close quiz', err);
+      setStatusMsg(`❌ Error: ${err.response?.data?.message || 'Failed to close quiz'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const [quizzes, setQuizzes] = useState([]);
   const [doubtsModalQuiz, setDoubtsModalQuiz] = useState(null);
@@ -162,19 +182,30 @@ const TeacherDashboard = () => {
                   <h4 style={{ margin: '0 0 0.5rem 0' }}>{q.title}</h4>
                   <small style={{ color: '#4caf50', letterSpacing: '2px' }}>Code: {q.joinCode}</small>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                  <button className="btn" onClick={() => navigate(`/teacher-live/${q._id}`)} style={{ flex: 1, padding: '0.5rem' }}>
-                    Go Live
-                  </button>
-                  <button className="btn" onClick={() => navigate(`/analytics/${q._id}`)} style={{ flex: 1, padding: '0.5rem', background: '#4caf50' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                  {!q.isClosed ? (
+                    <button className="btn" onClick={() => navigate(`/teacher-live/${q._id}`)} style={{ flex: '1 0 100px', padding: '0.5rem' }}>
+                      Go Live
+                    </button>
+                  ) : (
+                    <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      CLOSED
+                    </div>
+                  )}
+                  <button className="btn" onClick={() => navigate(`/analytics/${q._id}`)} style={{ flex: '1 0 100px', padding: '0.5rem', background: '#4caf50' }}>
                     Analytics
                   </button>
-                  <button type="button" className="btn" onClick={() => openDoubtsForQuiz(q)} style={{ flex: 1, padding: '0.5rem', background: 'rgba(255, 193, 7, 0.25)', color: '#ffc107', border: '1px solid rgba(255, 193, 7, 0.4)' }}>
+                  <button type="button" className="btn" onClick={() => openDoubtsForQuiz(q)} style={{ flex: '1 0 100px', padding: '0.5rem', background: 'rgba(255, 193, 7, 0.25)', color: '#ffc107', border: '1px solid rgba(255, 193, 7, 0.4)' }}>
                     View Doubts
                   </button>
-                  <button type="button" className="btn" onClick={() => handleDuplicate(q._id)} style={{ flex: 1, padding: '0.5rem', background: 'rgba(100, 108, 255, 0.2)', border: '1px solid rgba(100, 108, 255, 0.4)' }}>
+                  <button type="button" className="btn" onClick={() => handleDuplicate(q._id)} style={{ flex: '1 0 100px', padding: '0.5rem', background: 'rgba(100, 108, 255, 0.2)', border: '1px solid rgba(100, 108, 255, 0.4)' }}>
                     Duplicate
                   </button>
+                  {!q.isClosed && (
+                    <button type="button" className="btn" onClick={() => handleCloseQuiz(q._id)} style={{ flex: '1 0 150px', padding: '0.5rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444' }}>
+                      Close Permanently
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

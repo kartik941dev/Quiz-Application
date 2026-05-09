@@ -50,11 +50,30 @@ const connectDB = async () => {
     if (!MONGO_URI) {
       throw new Error('MONGO_URI is not defined in .env');
     }
+
+    // Sanitize URI for logging (hide password)
+    const sanitizedUri = MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, '// $1:****@');
+    
+    // Extract DB Name
+    const dbName = MONGO_URI.split('/').pop()?.split('?')[0] || 'default';
+    
+    console.log(`🔌 Attempting to connect to DB: ${dbName}`);
+    console.log(`🌐 URI: ${sanitizedUri}`);
+
     await mongoose.connect(MONGO_URI);
     console.log('✅ MongoDB Connected successfully (Atlas)');
   } catch (err) {
     console.error('❌ MongoDB Connection Error:', err.message);
-    process.exit(1); 
+    // If it's an SSL error, suggest common fixes
+    if (err.message.includes('SSL') || err.message.includes('tls')) {
+      console.log('💡 TIP: This might be an IP whitelist issue in MongoDB Atlas or a local firewall blocking SSL traffic.');
+      console.log('💡 TIP: Try removing "?retryWrites=true&w=majority" from the URI if the error persists.');
+    }
+    
+    console.log('⌛ Waiting 5 seconds before exiting to prevent crash loop...');
+    setTimeout(() => {
+      process.exit(1);
+    }, 5000);
   }
 };
 

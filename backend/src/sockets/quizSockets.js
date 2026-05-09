@@ -214,6 +214,10 @@ module.exports = (io) => {
           try {
             const quiz = await Quiz.findById(quizId);
             if (quiz && quiz.teacherId.toString() === socket.user.userId) {
+              if (quiz.isClosed) {
+                socket.emit('error-alert', { message: "This quiz is permanently closed and cannot be hosted." });
+                return;
+              }
               // SHUFFLING LOGIC
               const shuffledQuestions = shuffleArray([...(quiz.questions || [])]).map(q => {
                 const options = [...(q.options || [])];
@@ -404,6 +408,15 @@ module.exports = (io) => {
         }
       } catch (err) {
         console.error('[SOCKET] Error in remove-student:', err);
+      }
+    });
+
+      socket.on('end-quiz', ({ quizId }) => {
+      try {
+        if (socket.user.role !== 'teacher') return;
+        handleEndQuiz(quizId, io);
+      } catch (err) {
+        console.error('[SOCKET] Error in end-quiz:', err);
       }
     });
 

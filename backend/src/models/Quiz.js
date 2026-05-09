@@ -48,7 +48,9 @@ const quizSchema = new mongoose.Schema({
       }
     ]
   },
-  negativeMarkingEnabled: { type: Boolean, default: false }
+  negativeMarkingEnabled: { type: Boolean, default: false },
+  isClosed: { type: Boolean, default: false },
+  closedAt: { type: Date }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Quiz', quizSchema);

@@ -152,6 +152,11 @@ exports.joinQuiz = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
+    if (quiz.isClosed) {
+      console.log(`[QUIZ] Join failed: Quiz ${quiz._id} is permanently closed.`);
+      return res.status(403).json({ success: false, message: 'This quiz has been permanently closed.' });
+    }
+
     console.log(`[QUIZ] Join success: Found quiz "${quiz.title}" for code "${cleanCode}"`);
 
     // Try to create the attempt
@@ -314,5 +319,34 @@ exports.getQuizResults = async (req, res) => {
   } catch (err) {
     console.error('[QUIZ] Results error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch results' });
+  }
+};
+
+exports.closeQuiz = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const quiz = await Quiz.findById(id);
+
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found' });
+    }
+
+    // Only the creator can close it
+    if (quiz.teacherId.toString() !== req.user.userId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    if (quiz.isClosed) {
+      return res.status(400).json({ success: false, message: 'Quiz is already closed' });
+    }
+
+    quiz.isClosed = true;
+    quiz.closedAt = new Date();
+    await quiz.save();
+
+    res.status(200).json({ success: true, message: 'Quiz permanently closed.' });
+  } catch (err) {
+    console.error('[QUIZ] Close error:', err);
+    res.status(500).json({ success: false, message: 'Failed to close quiz' });
   }
 };

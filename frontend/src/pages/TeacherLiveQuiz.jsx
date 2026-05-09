@@ -26,7 +26,14 @@ const TeacherLiveQuiz = () => {
       try {
         const res = await api.get('/quiz/my-quizzes');
         const active = res.data.quizzes.find(q => q._id === id);
-        if (active) setQuiz(active);
+        if (active) {
+          if (active.isClosed) {
+            alert('This quiz is permanently closed and cannot be hosted.');
+            navigate('/teacher-dashboard');
+            return;
+          }
+          setQuiz(active);
+        }
       } catch (err) {
         console.error('Failed to load quiz for hosting', err);
       } finally {
@@ -82,6 +89,11 @@ const TeacherLiveQuiz = () => {
       setParticipants(prev => prev.map(p => 
         p.userId === data.userId ? { ...p, flagged: true, stats: data.stats } : p
       ));
+    });
+
+    newSocket.on('quiz-ended', () => {
+      alert('Quiz has ended. Redirecting to dashboard...');
+      navigate('/teacher-dashboard');
     });
 
     return () => newSocket.disconnect();
