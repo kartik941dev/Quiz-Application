@@ -9,4 +9,10 @@ router.get('/:quizId/csv', verifyToken, requireRole(['teacher']), exportControll
 // @route   GET /api/export/:quizId/pdf
 router.get('/:quizId/pdf', verifyToken, requireRole(['teacher']), exportController.exportPDF);
 
+// @route   POST /api/export/:quizId/email-all
+router.post('/:quizId/email-all', verifyToken, requireRole(['teacher']), exportController.exportEmailAll);
+
+// @route   POST /api/export/:quizId/email-single/:attemptId
+router.post('/:quizId/email-single/:attemptId', verifyToken, requireRole(['teacher']), exportController.exportEmailSingle);
+
 module.exports = router;

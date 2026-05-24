@@ -99,6 +99,7 @@ exports.getQuizAnalytics = async (req, res) => {
     // 4. Top Performers
     const topPerformers = attempts
       .map(a => ({
+        attemptId: a._id,
         name: a.studentId ? a.studentId.name : 'Unknown',
         score: a.score,
         percentage: parseFloat(((a.score / totalQuestions) * 100).toFixed(2))

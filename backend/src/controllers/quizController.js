@@ -225,8 +225,21 @@ exports.submitQuiz = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid answers format' });
     }
 
+    const attempt = await QuizAttempt.findOne({ quizId: id, studentId: req.user.userId });
+    if (!attempt) {
+       return res.status(404).json({ success: false, message: 'Quiz attempt not found. Did you join?' });
+    }
+
+    if (attempt.answers && attempt.answers.length > 0) {
+      return res.status(400).json({ success: false, message: 'You have already submitted answers for this quiz.' });
+    }
+
     const quiz = await Quiz.findById(id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    if (quiz.isClosed) {
+      return res.status(403).json({ success: false, message: 'This quiz is permanently closed.' });
+    }
 
     // Calculate score
     let score = 0;
@@ -253,16 +266,11 @@ exports.submitQuiz = async (req, res) => {
       }
     });
 
-    // Update Attempt (Use findOneAndUpdate because they joined previously)
-    const attempt = await QuizAttempt.findOneAndUpdate(
-      { quizId: id, studentId: req.user.userId },
-      { $set: { answers: processedAnswers, score: score } },
-      { new: true }
-    );
-
-    if (!attempt) {
-       return res.status(404).json({ success: false, message: 'Quiz attempt not found. Did you join?' });
-    }
+    // Update Attempt
+    attempt.answers = processedAnswers;
+    attempt.score = score;
+    attempt.completedAt = new Date();
+    await attempt.save();
 
     res.status(200).json({ 
       success: true, 

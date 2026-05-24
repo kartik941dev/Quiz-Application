@@ -54,6 +54,10 @@ module.exports = (io) => {
       if (!state) return;
 
       if (state.timerId) clearInterval(state.timerId);
+      if (state.autoProgressionTimeoutId) {
+        clearTimeout(state.autoProgressionTimeoutId);
+        state.autoProgressionTimeoutId = null;
+      }
 
       const totalQuestions = state.quizDoc?.questions?.length || 0;
       const now = Date.now();
@@ -117,8 +121,15 @@ module.exports = (io) => {
         if (timeLeft <= 0) {
           clearInterval(state.timerId);
           io.to(quizId).emit('time-up');
+          
+          if (state.autoProgressionTimeoutId) {
+            clearTimeout(state.autoProgressionTimeoutId);
+          }
+          
           // AUTO PROGRESSION (2s delay after time-up)
-          setTimeout(() => emitNextQuestion(quizId, io), 2000);
+          state.autoProgressionTimeoutId = setTimeout(() => {
+            emitNextQuestion(quizId, io);
+          }, 2000);
         } else {
           io.to(quizId).emit('timer', { timeLeft });
         }
@@ -133,6 +144,11 @@ module.exports = (io) => {
     try {
       const state = activeQuizzes[quizId];
       if (!state) return;
+
+      if (state.autoProgressionTimeoutId) {
+        clearTimeout(state.autoProgressionTimeoutId);
+        state.autoProgressionTimeoutId = null;
+      }
 
       state.currentQuestionIndex++;
       
@@ -463,14 +479,7 @@ module.exports = (io) => {
       }
     });
 
-    socket.on('end-quiz', async ({ quizId }) => {
-      try {
-        if (socket.user.role !== 'teacher') return;
-        handleEndQuiz(quizId, io);
-      } catch (err) {
-        console.error('[SOCKET] Error in end-quiz:', err);
-      }
-    });
+
 
     // ==========================================
     // STUDENT SUBMISSIONS

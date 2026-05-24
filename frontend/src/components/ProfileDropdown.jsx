@@ -21,9 +21,23 @@ const ProfileDropdown = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleAction = (path) => {
+  const handleAction = (path, action) => {
     setIsOpen(false);
-    navigate(path);
+    if (window.location.pathname === path) {
+      if (action === 'create') {
+        const formEl = document.querySelector('form');
+        if (formEl) {
+          formEl.scrollIntoView({ behavior: 'smooth' });
+        }
+      } else if (action === 'quizzes') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } else {
+      navigate(path);
+      if (action) {
+        sessionStorage.setItem('scrollTarget', action);
+      }
+    }
   };
 
   const handleLogout = () => {
@@ -88,8 +102,8 @@ const ProfileDropdown = () => {
 
           {user.role === 'teacher' ? (
             <>
-              <MenuItem onClick={() => handleAction('/teacher-dashboard')} icon="➕" label="Create Quiz" />
-              <MenuItem onClick={() => handleAction('/teacher-dashboard')} icon="📚" label="My Quizzes" />
+              <MenuItem onClick={() => handleAction('/teacher-dashboard', 'create')} icon="➕" label="Create Quiz" />
+              <MenuItem onClick={() => handleAction('/teacher-dashboard', 'quizzes')} icon="📚" label="My Quizzes" />
               <MenuItem onClick={() => handleAction('/teacher/analytics')} icon="📈" label="Analytics" />
             </>
           ) : (

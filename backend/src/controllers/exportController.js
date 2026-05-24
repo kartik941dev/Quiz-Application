@@ -128,3 +128,89 @@ exports.exportPDF = async (req, res) => {
     res.status(err.message === 'Unauthorized' ? 403 : 500).json({ message: err.message });
   }
 };
+
+const mailService = require('../services/mailService');
+
+exports.exportEmailAll = async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    const { quiz, attempts } = await getExportData(quizId, req.user.userId);
+
+    if (attempts.length === 0) {
+      return res.status(400).json({ success: false, message: 'No student attempts exist to report.' });
+    }
+
+    let successCount = 0;
+    let failedCount = 0;
+    let bypassedCount = 0;
+
+    for (const attempt of attempts) {
+      if (!attempt.studentId || !attempt.studentId.email) {
+        failedCount++;
+        continue;
+      }
+
+      const result = await mailService.sendReportEmail(
+        quiz.title,
+        attempt.studentId.name,
+        attempt.studentId.email,
+        attempt
+      );
+
+      if (result.success) {
+        successCount++;
+      } else if (result.bypassed) {
+        bypassedCount++;
+      } else {
+        failedCount++;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk reports execution complete. Success: ${successCount}, Bypassed: ${bypassedCount}, Failed: ${failedCount}`
+    });
+
+  } catch (err) {
+    console.error('Bulk Email Export Error:', err);
+    res.status(err.message === 'Unauthorized' ? 403 : 500).json({ message: err.message });
+  }
+};
+
+exports.exportEmailSingle = async (req, res) => {
+  try {
+    const { quizId, attemptId } = req.params;
+    
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+    if (quiz.teacherId.toString() !== req.user.userId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const attempt = await QuizAttempt.findById(attemptId).populate('studentId', 'name email');
+    if (!attempt) return res.status(404).json({ success: false, message: 'Attempt not found' });
+
+    if (!attempt.studentId || !attempt.studentId.email) {
+      return res.status(400).json({ success: false, message: 'Attempt does not have valid student email information.' });
+    }
+
+    const result = await mailService.sendReportEmail(
+      quiz.title,
+      attempt.studentId.name,
+      attempt.studentId.email,
+      attempt
+    );
+
+    if (result.success) {
+      return res.status(200).json({ success: true, message: 'Report email sent successfully.' });
+    } else if (result.bypassed) {
+      return res.status(200).json({ success: true, message: 'Mail delivery bypassed (disabled in server configuration).' });
+    } else {
+      return res.status(500).json({ success: false, message: `Failed to deliver email: ${result.error}` });
+    }
+
+  } catch (err) {
+    console.error('Single Email Export Error:', err);
+    res.status(500).json({ success: false, message: 'Server error sending report email' });
+  }
+};

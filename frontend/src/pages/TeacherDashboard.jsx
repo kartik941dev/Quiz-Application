@@ -164,7 +164,21 @@ const TeacherDashboard = () => {
       }
     };
     fetchQuizzes();
-  }, [statusMsg]); // Refetch when a new quiz is created (statusMsg changes)
+  }, [statusMsg]);
+
+  React.useEffect(() => {
+    const target = sessionStorage.getItem('scrollTarget');
+    if (target) {
+      sessionStorage.removeItem('scrollTarget');
+      setTimeout(() => {
+        if (target === 'create') {
+          formRef.current?.scrollIntoView({ behavior: 'smooth' });
+        } else if (target === 'quizzes') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 500);
+    }
+  }, []);
 
   return (
     <div className="dashboard" style={{ padding: '2rem' }}>

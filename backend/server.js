@@ -5,7 +5,7 @@ const dotenv = require('dotenv');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 
-dotenv.config();
+dotenv.config({ override: true });
 
 const app = express();
 const httpServer = createServer(app);
@@ -43,50 +43,117 @@ app.get('/', (req, res) => {
   res.send('Backend is running 🚀');
 });
 
+// Health Check Endpoint
+app.get('/health', (req, res) => {
+  const dbStatus = mongoose.connection.readyState;
+  const statusMap = {
+    0: 'Disconnected',
+    1: 'Connected',
+    2: 'Connecting',
+    3: 'Disconnecting'
+  };
+
+  const status = {
+    status: dbStatus === 1 ? 'OK' : 'Error',
+    database: statusMap[dbStatus] || 'UnknownState',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  };
+
+  if (dbStatus === 1) {
+    return res.status(200).json(status);
+  } else {
+    return res.status(503).json(status);
+  }
+});
+
+// Run Diagnostics on Startup
+const runDiagnostics = () => {
+  console.log('\n==================================================');
+  console.log('⚙️  SYSTEM STARTUP DIAGNOSTICS');
+  console.log('==================================================');
+  console.log(`Node Version   : ${process.version}`);
+  console.log(`Platform       : ${process.platform}`);
+  console.log(`Architecture   : ${process.arch}`);
+  console.log(`Process ID     : ${process.pid}`);
+  console.log(`Memory Usage   : ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`);
+  
+  const MONGO_URI = process.env.MONGO_URI;
+  if (!MONGO_URI) {
+    console.error('❌ VALIDATION ERROR: MONGO_URI is missing from environment!');
+    return false;
+  }
+
+  // Extract DB Name
+  const dbName = MONGO_URI.split('/').pop()?.split('?')[0] || 'default';
+  // Sanitize URI for logging (hide password)
+  const sanitizedUri = MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@');
+
+  console.log(`Target Database: "${dbName}"`);
+  console.log(`Sanitized URI  : ${sanitizedUri}`);
+
+  // Basic URI format validation
+  if (!MONGO_URI.startsWith('mongodb://') && !MONGO_URI.startsWith('mongodb+srv://')) {
+    console.error('❌ VALIDATION ERROR: MONGO_URI must start with "mongodb://" or "mongodb+srv://"');
+    return false;
+  }
+
+  console.log('==================================================\n');
+  return true;
+};
+
+// Disable global query buffering for debugging and fail-fast operations
+mongoose.set('bufferCommands', false);
+
 // Setup MongoDB connection
 const connectDB = async () => {
+  const MONGO_URI = process.env.MONGO_URI;
+  if (!MONGO_URI) {
+    throw new Error('MONGO_URI environment variable is missing.');
+  }
+
+  const dbName = MONGO_URI.split('/').pop()?.split('?')[0] || 'default';
+  console.log(`🔌 Attempting to connect to database: "${dbName}"...`);
+
   try {
-    const MONGO_URI = process.env.MONGO_URI;
-    if (!MONGO_URI) {
-      throw new Error('MONGO_URI is not defined in .env');
-    }
-
-    // Sanitize URI for logging (hide password)
-    const sanitizedUri = MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, '// $1:****@');
-    
-    // Extract DB Name
-    const dbName = MONGO_URI.split('/').pop()?.split('?')[0] || 'default';
-    
-    console.log(`🔌 Attempting to connect to DB: ${dbName}`);
-    console.log(`🌐 URI: ${sanitizedUri}`);
-
-    await mongoose.connect(MONGO_URI);
-    console.log('✅ MongoDB Connected successfully (Atlas)');
+    await mongoose.connect(MONGO_URI, {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5 seconds instead of 30 seconds
+      socketTimeoutMS: 45000,
+    });
+    console.log(`✅ MongoDB: Connection established successfully to "${dbName}"`);
   } catch (err) {
-    console.error('❌ MongoDB Connection Error:', err.message);
-    // If it's an SSL error, suggest common fixes
-    if (err.message.includes('SSL') || err.message.includes('tls')) {
-      console.log('💡 TIP: This might be an IP whitelist issue in MongoDB Atlas or a local firewall blocking SSL traffic.');
-      console.log('💡 TIP: Try removing "?retryWrites=true&w=majority" from the URI if the error persists.');
-    }
+    console.error('\n==================================================');
+    console.error('❌ MongoDB Connection Failure Reason:', err.message);
     
-    console.log('⌛ Waiting 5 seconds before exiting to prevent crash loop...');
-    setTimeout(() => {
-      process.exit(1);
-    }, 5000);
+    if (err.message.includes('alert number 80') || err.message.includes('SSL') || err.message.includes('tls') || err.message.includes('servers')) {
+      console.error('\n💡 ATLAS NETWORK ALERT:');
+      console.error('👉 This error indicates that your client IP address is NOT whitelisted in MongoDB Atlas.');
+      console.error('👉 ACTION REQUIRED: Go to your MongoDB Atlas Console -> Security -> Network Access.');
+      console.error('👉 Add your current IP address or add 0.0.0.0/0 (allows connections from anywhere for dev/testing).');
+    }
+    console.error('==================================================\n');
+    throw err; // Re-throw to prevent the app from continuing to startup
   }
 };
 
+// Setup connection lifecycle event handlers
+mongoose.connection.on('connecting', () => {
+  console.log('🔌 MongoDB Lifecycle: Connecting...');
+});
+mongoose.connection.on('connected', () => {
+  console.log('✅ MongoDB Lifecycle: Connected.');
+});
+mongoose.connection.on('disconnecting', () => {
+  console.log('🔌 MongoDB Lifecycle: Disconnecting...');
+});
 mongoose.connection.on('disconnected', () => {
-  console.log('⚠️ MongoDB Disconnected. Attempting to reconnect...');
+  console.log('⚠️ MongoDB Lifecycle: Disconnected. Ready state:', mongoose.connection.readyState);
 });
-
 mongoose.connection.on('reconnected', () => {
-  console.log('✅ MongoDB Reconnected successfully.');
+  console.log('✅ MongoDB Lifecycle: Reconnected successfully.');
 });
-
 mongoose.connection.on('error', (err) => {
-  console.error('❌ MongoDB Runtime Error:', err);
+  console.error('❌ MongoDB Lifecycle: Runtime Error occurred:', err);
 });
 
 // Initialize Socket.io logic
@@ -95,12 +162,30 @@ initQuizSockets(io);
 
 const PORT = process.env.PORT || 5001;
 
-if (require.main === module) {
-  connectDB().then(() => {
+const startServer = async () => {
+  // 1. Run environment diagnostics
+  const isEnvValid = runDiagnostics();
+  if (!isEnvValid) {
+    console.error('🔥 FATAL: Environment diagnostics failed. Exiting...');
+    process.exit(1);
+  }
+
+  // 2. Try database connection
+  try {
+    await connectDB();
+    
+    // 3. Only start Express server if database connects successfully
     httpServer.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
     });
-  });
+  } catch (err) {
+    console.error('🔥 FATAL: Server failed to start due to database connection error.');
+    process.exit(1);
+  }
+};
+
+if (require.main === module) {
+  startServer();
 }
 
 // GLOBAL ERROR HANDLING (Task 7)
@@ -110,6 +195,12 @@ process.on('uncaughtException', (err) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('🌊 CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Express Global Error Middleware
+app.use((err, req, res, next) => {
+  console.error('💥 Express Global Error:', err);
+  res.status(500).json({ success: false, message: 'Internal server error', error: err.message });
 });
 
 module.exports = { app, httpServer };

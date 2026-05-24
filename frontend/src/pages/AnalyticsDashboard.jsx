@@ -12,6 +12,7 @@ const AnalyticsDashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [emailStatus, setEmailStatus] = useState({ loading: false, msg: '', type: '' });
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -55,6 +56,28 @@ const AnalyticsDashboard = () => {
     }
   };
 
+  const handleSendBulkEmails = async () => {
+    setEmailStatus({ loading: true, msg: '✉️ Dispatching bulk performance email reports to participants...', type: 'info' });
+    try {
+      const res = await api.post(`/export/${id}/email-all`);
+      setEmailStatus({ loading: false, msg: `✅ Success! ${res.data.message}`, type: 'success' });
+      setTimeout(() => setEmailStatus({ loading: false, msg: '', type: '' }), 5000);
+    } catch (err) {
+      setEmailStatus({ loading: false, msg: `❌ Failed to dispatch bulk emails: ${err.response?.data?.message || err.message}`, type: 'error' });
+    }
+  };
+
+  const handleSendSingleEmail = async (attemptId, studentName) => {
+    setEmailStatus({ loading: true, msg: `✉️ Sending performance report email to ${studentName}...`, type: 'info' });
+    try {
+      const res = await api.post(`/export/${id}/email-single/${attemptId}`);
+      setEmailStatus({ loading: false, msg: `✅ Email report successfully sent to ${studentName}!`, type: 'success' });
+      setTimeout(() => setEmailStatus({ loading: false, msg: '', type: '' }), 5000);
+    } catch (err) {
+      setEmailStatus({ loading: false, msg: `❌ Failed to send email to ${studentName}: ${err.response?.data?.message || err.message}`, type: 'error' });
+    }
+  };
+
   if (loading) return <div className="loading" style={{ color: 'white', textAlign: 'center', marginTop: '50px' }}>Analyzing Data...</div>;
   if (error) return <div className="error-message" style={{ color: '#ff4a4a', textAlign: 'center', padding: '2rem' }}>{error}</div>;
   if (!data) return null;
@@ -63,11 +86,28 @@ const AnalyticsDashboard = () => {
 
   return (
     <div className="dashboard" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+      
+      {emailStatus.msg && (
+        <div style={{
+          padding: '1rem',
+          marginBottom: '1.5rem',
+          borderRadius: '8px',
+          background: emailStatus.type === 'success' ? 'rgba(76, 175, 80, 0.2)' : (emailStatus.type === 'info' ? 'rgba(100, 108, 255, 0.2)' : 'rgba(244, 67, 54, 0.2)'),
+          color: emailStatus.type === 'success' ? '#4caf50' : (emailStatus.type === 'info' ? '#9499ff' : '#ff4a4a'),
+          border: `1px solid ${emailStatus.type === 'success' ? 'rgba(76, 175, 80, 0.3)' : (emailStatus.type === 'info' ? 'rgba(100, 108, 255, 0.3)' : 'rgba(244, 67, 54, 0.3)')}`,
+          fontWeight: 'bold',
+          textAlign: 'center'
+        }}>
+          {emailStatus.msg}
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '2rem', color: '#646cff' }}>Quiz Performance Insights</h2>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn" onClick={handleDownloadCSV} style={{ width: 'auto', background: '#4caf50' }}>Download CSV</button>
-          <button className="btn" onClick={handleDownloadPDF} style={{ width: 'auto', background: '#e91e63' }}>Download PDF</button>
+          <button className="btn" onClick={handleDownloadCSV} disabled={emailStatus.loading} style={{ width: 'auto', background: '#4caf50' }}>Download CSV</button>
+          <button className="btn" onClick={handleDownloadPDF} disabled={emailStatus.loading} style={{ width: 'auto', background: '#e91e63' }}>Download PDF</button>
+          <button className="btn" onClick={handleSendBulkEmails} disabled={emailStatus.loading} style={{ width: 'auto', background: '#646cff' }}>Email All Reports</button>
           <button className="btn" onClick={() => navigate('/teacher-dashboard')} style={{ width: 'auto', background: 'rgba(255,255,255,0.1)' }}>Back</button>
         </div>
       </div>
@@ -164,6 +204,7 @@ const AnalyticsDashboard = () => {
                 <th style={{ padding: '1rem' }}>Student Name</th>
                 <th style={{ padding: '1rem' }}>Score</th>
                 <th style={{ padding: '1rem' }}>Percentage</th>
+                <th style={{ padding: '1rem' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -175,6 +216,16 @@ const AnalyticsDashboard = () => {
                   <td style={{ padding: '1rem', fontWeight: 'bold' }}>{student.name}</td>
                   <td style={{ padding: '1rem' }}>{student.score}</td>
                   <td style={{ padding: '1rem', color: '#4caf50' }}>{student.percentage}%</td>
+                  <td style={{ padding: '1rem' }}>
+                    <button 
+                      className="btn" 
+                      onClick={() => handleSendSingleEmail(student.attemptId, student.name)} 
+                      disabled={emailStatus.loading || !student.attemptId}
+                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', width: 'auto', background: '#646cff', marginTop: 0 }}
+                    >
+                      📧 Mail Report
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
