@@ -7,18 +7,35 @@ const { Server } = require('socket.io');
 
 dotenv.config({ override: true });
 
+// Setup CORS origins dynamically from environment variables
+const allowedOrigins = [
+  "http://localhost:5173", // Local dev frontend
+  "https://quiz-application-lime-eight.vercel.app" // Deployed Vercel frontend
+];
+
+if (process.env.FRONTEND_URL) {
+  // Support comma-separated URLs and normalize by removing trailing slashes
+  const envOrigins = process.env.FRONTEND_URL.split(',').map(url => url.trim().replace(/\/$/, ""));
+  allowedOrigins.push(...envOrigins);
+}
+
+// Ensure unique, clean, sanitized origins
+const uniqueOrigins = [...new Set(allowedOrigins)];
+
+console.log('🔒 CORS: Registered allowed origins:', uniqueOrigins);
+
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: uniqueOrigins,
     methods: ["GET", "POST"],
     credentials: true
   }
 });
 
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: uniqueOrigins,
   credentials: true
 }));
 app.use(express.json());

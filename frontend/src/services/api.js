@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+const rawBaseURL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+// Clean baseURL by removing trailing slashes to prevent dual-slash issues
+const cleanBaseURL = rawBaseURL.replace(/\/$/, "");
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
+  baseURL: cleanBaseURL,
 });
 
 // Add a request interceptor to inject the token

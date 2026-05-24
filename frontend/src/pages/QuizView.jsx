@@ -43,8 +43,9 @@ const QuizView = () => {
 
     // 2. Connect Socket
     const token = localStorage.getItem('token');
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
-    const newSocket = io(socketUrl, { auth: { token } });
+    const rawSocketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+    const cleanSocketUrl = rawSocketUrl.replace(/\/$/, "");
+    const newSocket = io(cleanSocketUrl, { auth: { token } });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
