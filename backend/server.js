@@ -40,6 +40,16 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Request Logging Middleware for Production Diagnostics
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  const method = req.method;
+  const path = req.originalUrl;
+  const origin = req.get('origin') || 'no-origin';
+  console.log(`[${timestamp}] 📥 Request: ${method} ${path} - Origin: ${origin}`);
+  next();
+});
+
 // Routes
 const authRoutes = require('./src/routes/authRoutes');
 const quizRoutes = require('./src/routes/quizRoutes');
@@ -60,8 +70,8 @@ app.get('/', (req, res) => {
   res.send('Backend is running 🚀');
 });
 
-// Health Check Endpoint
-app.get('/health', (req, res) => {
+// Production Suffix Double Health-Check Routes
+const handleHealthCheck = (req, res) => {
   const dbStatus = mongoose.connection.readyState;
   const statusMap = {
     0: 'Disconnected',
@@ -82,7 +92,10 @@ app.get('/health', (req, res) => {
   } else {
     return res.status(503).json(status);
   }
-});
+};
+
+app.get('/api/health', handleHealthCheck);
+app.get('/health', handleHealthCheck);
 
 // Run Diagnostics on Startup
 const runDiagnostics = () => {

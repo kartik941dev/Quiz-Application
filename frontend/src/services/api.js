@@ -1,8 +1,17 @@
 import axios from 'axios';
 
 const rawBaseURL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-// Clean baseURL by removing trailing slashes to prevent dual-slash issues
-const cleanBaseURL = rawBaseURL.replace(/\/$/, "");
+
+// 1. Clean trailing slashes
+let cleanBaseURL = rawBaseURL.trim().replace(/\/+$/, "");
+
+// 2. Self-Healing Prefix Resolution: Ensure it ends with '/api' for MERN routes
+if (!cleanBaseURL.endsWith('/api')) {
+  console.warn('⚠️ Centralized API: VITE_API_URL is missing the "/api" suffix. Appending "/api" dynamically to ensure route synchronization.');
+  cleanBaseURL = cleanBaseURL + '/api';
+}
+
+console.log('🔌 Centralized API: Initialized with baseURL:', cleanBaseURL);
 
 const api = axios.create({
   baseURL: cleanBaseURL,
