@@ -57,6 +57,7 @@ const doubtRoutes = require('./src/routes/doubtRoutes');
 const analyticsRoutes = require('./src/routes/analyticsRoutes');
 const exportRoutes = require('./src/routes/exportRoutes');
 const studentRoutes = require('./src/routes/studentRoutes');
+const questionBankRoutes = require('./src/routes/questionBankRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/quiz', quizRoutes);
@@ -64,6 +65,7 @@ app.use('/api/doubts', doubtRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/student', studentRoutes);
+app.use('/api/question-bank', questionBankRoutes);
 
 // Basic route to test server
 app.get('/', (req, res) => {

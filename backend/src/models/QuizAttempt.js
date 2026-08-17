@@ -1,15 +1,19 @@
 const mongoose = require('mongoose');
 
+const answerSchema = new mongoose.Schema({
+  questionId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  selectedOptionIndex: { type: Number },
+  selectedOptionIndices: { type: [Number], default: [] },
+  textResponse: { type: String, default: '' },
+  timeTaken: { type: Number, default: 0 },
+  isCorrect: { type: Boolean, default: false },
+  marksAwarded: { type: Number, default: 0 }
+}, { _id: false });
+
 const quizAttemptSchema = new mongoose.Schema({
   quizId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz', required: true, index: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  answers: [{
-    questionId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    selectedOptionIndex: { type: Number, required: true },
-    timeTaken: { type: Number, default: 0 }, // Time in seconds
-    isCorrect: { type: Boolean, default: false },
-    marksAwarded: { type: Number, default: 0 }
-  }],
+  answers: [answerSchema],
   score: { type: Number, required: true },
   totalQuestions: { type: Number, required: true },
   startedAt: { type: Date, default: Date.now },
