@@ -388,10 +388,13 @@ exports.submitQuiz = async (req, res) => {
     let score = 0;
     const processedAnswers = [];
 
+    const normalizeText = (str) => (str || '').toString().trim().toLowerCase().replace(/^[.,/#!$%^&*;:{}=\-_`~()?"']+|[.,/#!$%^&*;:{}=\-_`~()?“']+$/g, '').replace(/\s+/g, ' ');
+
     quiz.questions.forEach(q => {
       const studentAnswer = answers.find(a => a.questionId === q._id.toString());
       if (studentAnswer) {
         let isCorrect = false;
+        let evaluationStatus = 'auto_graded';
         const qType = q.type || 'single_choice';
 
         if (qType === 'single_choice' || qType === 'true_false') {
@@ -401,17 +404,22 @@ exports.submitQuiz = async (req, res) => {
           const cIndices = new Set(q.correctOptionIndices || []);
           isCorrect = sIndices.size === cIndices.size && [...sIndices].every(x => cIndices.has(x));
         } else if (qType === 'fill_in_the_blank') {
-          const val = (studentAnswer.textResponse || '').trim().toLowerCase();
-          isCorrect = (q.acceptedAnswers || []).some(a => a.trim().toLowerCase() === val);
+          const cleanStudentText = normalizeText(studentAnswer.textResponse);
+          const accepted = Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers : [];
+          isCorrect = accepted.some(a => normalizeText(a) === cleanStudentText);
         } else if (qType === 'essay_code') {
-          isCorrect = Boolean((studentAnswer.textResponse || '').trim());
+          // Manual teacher review required
+          isCorrect = false;
+          evaluationStatus = 'pending_review';
         }
 
-        const marksAwarded = isCorrect ? (q.marks || 1) : (quiz.negativeMarkingEnabled ? -(q.negativeMarks || 0) : 0);
+        const marksAwarded = qType === 'essay_code'
+          ? 0 // Graded manually by teacher
+          : (isCorrect ? (q.marks || 1) : (quiz.negativeMarkingEnabled ? -(q.negativeMarks || 0) : 0));
 
         if (isCorrect) {
           score += (q.marks || 1);
-        } else if (quiz.negativeMarkingEnabled) {
+        } else if (quiz.negativeMarkingEnabled && qType !== 'essay_code') {
           score -= (q.negativeMarks || 0);
         }
 
@@ -421,13 +429,16 @@ exports.submitQuiz = async (req, res) => {
           selectedOptionIndices: studentAnswer.selectedOptionIndices || [],
           textResponse: studentAnswer.textResponse || '',
           isCorrect,
-          marksAwarded
+          marksAwarded,
+          evaluationStatus,
+          teacherFeedback: ''
         });
       }
     });
 
     attempt.answers = processedAnswers;
     attempt.score = score;
+    attempt.hasPendingReview = Boolean(processedAnswers.some(a => a.evaluationStatus === 'pending_review'));
     attempt.completedAt = new Date();
     await attempt.save();
 
@@ -452,37 +463,42 @@ exports.getQuizResults = async (req, res) => {
     const quiz = await Quiz.findById(id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
 
+    const totalMarks = quiz.questions.reduce((sum, q) => sum + (q.marks || 1), 0);
+
     const results = quiz.questions.map(q => {
       const studentAnswer = attempt.answers.find(a => a.questionId.toString() === q._id.toString());
-      
+      const isEssayCode = q.type === 'essay_code';
+      const evalStatus = studentAnswer?.evaluationStatus || (isEssayCode ? 'pending_review' : 'auto_graded');
+
       return {
-        _id: q._id,
+        questionId: q._id,
         text: q.text,
         type: q.type || 'single_choice',
-        options: q.options,
-        codeLanguage: q.codeLanguage,
-        acceptedAnswers: q.acceptedAnswers,
-        timeLimit: q.timeLimit,
-        explanation: q.explanation,
+        options: q.options || [],
         correctOptionIndex: q.correctOptionIndex,
         correctOptionIndices: q.correctOptionIndices || [],
-        userSelectedOptionIndex: studentAnswer ? studentAnswer.selectedOptionIndex : null,
-        userSelectedOptionIndices: studentAnswer ? studentAnswer.selectedOptionIndices : [],
-        userTextResponse: studentAnswer ? studentAnswer.textResponse : '',
+        acceptedAnswers: q.acceptedAnswers || [],
+        codeLanguage: q.codeLanguage,
+        marks: q.marks || 1,
+        explanation: q.explanation || '',
+        selectedOptionIndex: studentAnswer ? studentAnswer.selectedOptionIndex : null,
+        selectedOptionIndices: studentAnswer ? studentAnswer.selectedOptionIndices : [],
+        textResponse: studentAnswer ? studentAnswer.textResponse : '',
         isCorrect: studentAnswer ? studentAnswer.isCorrect : false,
         marksAwarded: studentAnswer ? studentAnswer.marksAwarded : 0,
-        questionMarks: q.marks,
-        questionNegativeMarks: q.negativeMarks
+        evaluationStatus: evalStatus,
+        teacherFeedback: studentAnswer?.teacherFeedback || ''
       };
     });
 
-    const totalMarks = quiz.questions.reduce((sum, q) => sum + (q.marks || 1), 0);
+    const hasPendingReview = Boolean(attempt.hasPendingReview || results.some(r => r.evaluationStatus === 'pending_review'));
 
     res.status(200).json({
       success: true,
       score: attempt.score,
       totalQuestions: attempt.totalQuestions,
       totalMarks,
+      hasPendingReview,
       allowReattempt: Boolean(quiz.allowReattempt),
       joinCode: quiz.joinCode,
       results
@@ -490,6 +506,121 @@ exports.getQuizResults = async (req, res) => {
   } catch (err) {
     console.error('[QUIZ] Results error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch results' });
+  }
+};
+
+exports.getQuizEvaluations = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const quiz = await Quiz.findById(id);
+
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+    if (quiz.teacherId.toString() !== req.user.userId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const attempts = await QuizAttempt.find({ quizId: id })
+      .populate('studentId', 'name email')
+      .sort({ createdAt: -1 });
+
+    const codeQuestions = (quiz.questions || []).filter(q => q.type === 'essay_code');
+
+    // Build evaluation submission list
+    const evaluations = [];
+
+    attempts.forEach(attempt => {
+      codeQuestions.forEach(q => {
+        const studentAns = (attempt.answers || []).find(a => a.questionId.toString() === q._id.toString());
+        if (studentAns) {
+          evaluations.push({
+            attemptId: attempt._id,
+            studentId: attempt.studentId ? attempt.studentId._id : 'unknown',
+            studentName: attempt.studentId ? attempt.studentId.name : 'Unknown Student',
+            studentEmail: attempt.studentId ? attempt.studentId.email : '',
+            questionId: q._id,
+            questionText: q.text,
+            codeLanguage: q.codeLanguage || 'general',
+            maxMarks: q.marks || 1,
+            textResponse: studentAns.textResponse || '',
+            marksAwarded: studentAns.marksAwarded || 0,
+            evaluationStatus: studentAns.evaluationStatus || 'pending_review',
+            teacherFeedback: studentAns.teacherFeedback || '',
+            submittedAt: attempt.completedAt || attempt.createdAt
+          });
+        }
+      });
+    });
+
+    res.status(200).json({
+      success: true,
+      quizTitle: quiz.title,
+      totalCodeQuestions: codeQuestions.length,
+      evaluations
+    });
+  } catch (err) {
+    console.error('[QUIZ] Evaluations error:', err);
+    res.status(500).json({ success: false, message: 'Failed to load evaluations' });
+  }
+};
+
+exports.gradeStudentAttempt = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const { questionId, marksAwarded, teacherFeedback } = req.body;
+
+    const attempt = await QuizAttempt.findById(attemptId).populate('quizId');
+    if (!attempt) return res.status(404).json({ success: false, message: 'Attempt not found' });
+
+    const quiz = attempt.quizId;
+    if (!quiz || quiz.teacherId.toString() !== req.user.userId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const question = quiz.questions.find(q => q._id.toString() === questionId.toString());
+    if (!question) return res.status(404).json({ success: false, message: 'Question not found' });
+
+    const maxMarks = question.marks || 1;
+    const awarded = Math.min(Math.max(0, Number(marksAwarded) || 0), maxMarks);
+
+    let answerFound = false;
+    attempt.answers.forEach(a => {
+      if (a.questionId.toString() === questionId.toString()) {
+        a.marksAwarded = awarded;
+        a.isCorrect = awarded > 0;
+        a.evaluationStatus = 'graded';
+        a.teacherFeedback = teacherFeedback || '';
+        answerFound = true;
+      }
+    });
+
+    if (!answerFound) {
+      attempt.answers.push({
+        questionId,
+        textResponse: '',
+        marksAwarded: awarded,
+        isCorrect: awarded > 0,
+        evaluationStatus: 'graded',
+        teacherFeedback: teacherFeedback || ''
+      });
+    }
+
+    // Recalculate total score from all answers
+    attempt.score = attempt.answers.reduce((sum, a) => sum + (a.marksAwarded || 0), 0);
+    attempt.hasPendingReview = Boolean(attempt.answers.some(a => a.evaluationStatus === 'pending_review'));
+    await attempt.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Grading saved successfully',
+      attempt: {
+        id: attempt._id,
+        score: attempt.score,
+        hasPendingReview: attempt.hasPendingReview
+      }
+    });
+  } catch (err) {
+    console.error('[QUIZ] Grading error:', err);
+    res.status(500).json({ success: false, message: 'Failed to save grade' });
   }
 };
 

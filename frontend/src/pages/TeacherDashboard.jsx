@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import GradeSubmissionsModal from '../components/GradeSubmissionsModal';
 
 const TeacherDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -17,6 +18,9 @@ const TeacherDashboard = () => {
   const [doubtsList, setDoubtsList] = useState([]);
   const [doubtsLoading, setDoubtsLoading] = useState(false);
   const [doubtsError, setDoubtsError] = useState('');
+
+  // Grade Submissions Modal State
+  const [gradeModalQuiz, setGradeModalQuiz] = useState(null);
 
   const fetchQuizzes = async () => {
     try {
@@ -216,6 +220,15 @@ const TeacherDashboard = () => {
                       Edit
                     </button>
                   )}
+                  <button 
+                    type="button" 
+                    className="btn btn-neutral" 
+                    onClick={() => setGradeModalQuiz(q)} 
+                    style={{ width: 'auto', padding: '0.5rem 1rem', fontSize: '0.88rem' }}
+                    title="Review and grade student code and essay submissions"
+                  >
+                    Grade Code
+                  </button>
                   <button type="button" className="btn btn-neutral" onClick={() => navigate(`/analytics/${q._id}`)} style={{ width: 'auto', padding: '0.5rem 1rem', fontSize: '0.88rem' }}>
                     Analytics
                   </button>
@@ -316,6 +329,16 @@ const TeacherDashboard = () => {
             )}
           </div>
         </div>
+      )}
+
+      {/* Grade Code / Essay Submissions Modal */}
+      {gradeModalQuiz && (
+        <GradeSubmissionsModal
+          quizId={gradeModalQuiz._id}
+          quizTitle={gradeModalQuiz.title}
+          onClose={() => setGradeModalQuiz(null)}
+          onGraded={fetchQuizzes}
+        />
       )}
 
     </div>

@@ -133,18 +133,35 @@ const StudentDashboard = () => {
                   <tbody>
                     {stats?.attempts.map((attempt) => (
                       <tr key={attempt.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td style={{ padding: '1rem', fontWeight: '600', color: 'var(--text-main)' }}>{attempt.quizTitle}</td>
+                        <td style={{ padding: '1rem', fontWeight: '600', color: 'var(--text-main)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>{attempt.quizTitle}</span>
+                            {attempt.hasPendingReview && (
+                              <span style={{
+                                fontSize: '0.72rem',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                background: '#fef3c7',
+                                color: '#b45309',
+                                fontWeight: 700,
+                                border: '1px solid #fde68a'
+                              }}>
+                                ⏳ Review Pending
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td style={{ padding: '1rem', color: 'var(--text-main)' }}>{attempt.score} / {attempt.totalMarks || attempt.totalQuestions}</td>
                         <td style={{ padding: '1rem' }}>
                           <span style={{ 
                             padding: '4px 8px', 
                             borderRadius: '4px', 
                             fontSize: '0.85rem',
-                            background: parseFloat(attempt.percentage) >= 70 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                            color: parseFloat(attempt.percentage) >= 70 ? '#059669' : '#d97706',
+                            background: attempt.hasPendingReview ? 'rgba(245, 158, 11, 0.12)' : (parseFloat(attempt.percentage) >= 70 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)'),
+                            color: attempt.hasPendingReview ? '#d97706' : (parseFloat(attempt.percentage) >= 70 ? '#059669' : '#dc2626'),
                             fontWeight: 700
                           }}>
-                            {attempt.percentage}%
+                            {attempt.hasPendingReview ? `${attempt.percentage}% (Grading)` : `${attempt.percentage}%`}
                           </span>
                         </td>
                         <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}>

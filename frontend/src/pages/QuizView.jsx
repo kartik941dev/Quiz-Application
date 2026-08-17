@@ -492,16 +492,67 @@ const QuizView = () => {
               </div>
 
               {/* Question Text & Dynamic Response Components */}
-              <div style={{ padding: '1.75rem', flex: 1 }}>
+              <div style={{ padding: '1.75rem' }}>
                 <p style={{
-                  fontSize: '1.15rem',
+                  fontSize: '1.25rem',
                   fontWeight: 600,
                   color: '#0f172a',
-                  lineHeight: '1.5',
+                  lineHeight: '1.6',
                   marginTop: 0,
                   marginBottom: '1.75rem'
                 }}>
-                  {currentQuestion.text}
+                  {qType === 'fill_in_the_blank' ? (
+                    (() => {
+                      const text = currentQuestion.text || '';
+                      if (text.includes('______') || text.includes('[blank]')) {
+                        const parts = text.split(/______+|\[blank\]/i);
+                        return parts.map((part, pIdx) => (
+                          <React.Fragment key={pIdx}>
+                            {part}
+                            {pIdx < parts.length - 1 && (
+                              <span style={{
+                                display: 'inline-block',
+                                minWidth: '100px',
+                                margin: '0 6px',
+                                padding: '2px 10px',
+                                borderBottom: '2.5px solid var(--primary)',
+                                background: 'var(--primary-subtle)',
+                                color: textResponse ? 'var(--primary)' : '#94a3b8',
+                                textAlign: 'center',
+                                fontWeight: 700,
+                                fontSize: '1.1rem',
+                                borderRadius: '4px'
+                              }}>
+                                {textResponse || '___________'}
+                              </span>
+                            )}
+                          </React.Fragment>
+                        ));
+                      }
+                      return (
+                        <span>
+                          {text}{' '}
+                          <span style={{
+                            display: 'inline-block',
+                            minWidth: '100px',
+                            margin: '0 6px',
+                            padding: '2px 10px',
+                            borderBottom: '2.5px solid var(--primary)',
+                            background: 'var(--primary-subtle)',
+                            color: textResponse ? 'var(--primary)' : '#94a3b8',
+                            textAlign: 'center',
+                            fontWeight: 700,
+                            fontSize: '1.1rem',
+                            borderRadius: '4px'
+                          }}>
+                            {textResponse || '___________'}
+                          </span>
+                        </span>
+                      );
+                    })()
+                  ) : (
+                    currentQuestion.text
+                  )}
                 </p>
 
                 {/* 1. Single Choice Radio List */}
@@ -568,17 +619,21 @@ const QuizView = () => {
                               transition: 'all 0.15s ease'
                             }}
                           >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              readOnly
-                              style={{
-                                width: '18px',
-                                height: '18px',
-                                cursor: 'pointer',
-                                accentColor: '#0284c7'
-                              }}
-                            />
+                            <div style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '4px',
+                              border: isSelected ? '2px solid #0284c7' : '2px solid #cbd5e1',
+                              background: isSelected ? '#0284c7' : '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#ffffff',
+                              fontSize: '0.75rem',
+                              fontWeight: 'bold'
+                            }}>
+                              {isSelected && '✓'}
+                            </div>
                             <span style={{ fontSize: '1rem', color: '#1e293b', fontWeight: isSelected ? 600 : 400 }}>
                               {opt}
                             </span>
@@ -592,30 +647,31 @@ const QuizView = () => {
                         className="btn"
                         onClick={handleMultiSubmit}
                         disabled={selectedOptionIndices.length === 0 || timeLeft === 0}
-                        style={{ width: 'auto', padding: '0.65rem 1.5rem', fontWeight: 600 }}
+                        style={{ width: 'auto', padding: '0.65rem 1.75rem', fontWeight: 600 }}
                       >
-                        Submit Selection ({selectedOptionIndices.length})
+                        Submit Selected Answers ({selectedOptionIndices.length})
                       </button>
                     )}
                   </div>
                 )}
 
-                {/* 3. True / False Toggles */}
+                {/* 3. True / False Large Buttons */}
                 {qType === 'true_false' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', maxWidth: '450px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                     <button
                       type="button"
                       onClick={() => handleSingleSelect(0)}
                       disabled={hasSubmitted || timeLeft === 0}
                       style={{
-                        padding: '1.5rem',
-                        fontSize: '1.25rem',
+                        padding: '1.25rem',
+                        fontSize: '1.15rem',
                         fontWeight: 700,
                         borderRadius: '8px',
-                        border: selectedOption === 0 ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                        background: selectedOption === 0 ? '#e0f2fe' : '#ffffff',
-                        color: selectedOption === 0 ? '#0284c7' : '#0f172a',
-                        cursor: hasSubmitted || timeLeft === 0 ? 'not-allowed' : 'pointer',
+                        cursor: hasSubmitted || timeLeft === 0 ? 'default' : 'pointer',
+                        border: selectedOption === 0 ? '2.5px solid #059669' : '1px solid #e2e8f0',
+                        background: selectedOption === 0 ? '#ecfdf5' : '#ffffff',
+                        color: selectedOption === 0 ? '#065f46' : '#1e293b',
+                        boxShadow: selectedOption === 0 ? '0 4px 12px rgba(5, 150, 105, 0.15)' : 'none',
                         transition: 'all 0.15s ease'
                       }}
                     >
@@ -626,14 +682,15 @@ const QuizView = () => {
                       onClick={() => handleSingleSelect(1)}
                       disabled={hasSubmitted || timeLeft === 0}
                       style={{
-                        padding: '1.5rem',
-                        fontSize: '1.25rem',
+                        padding: '1.25rem',
+                        fontSize: '1.15rem',
                         fontWeight: 700,
                         borderRadius: '8px',
-                        border: selectedOption === 1 ? '2px solid #dc2626' : '1px solid #cbd5e1',
-                        background: selectedOption === 1 ? '#fee2e2' : '#ffffff',
-                        color: selectedOption === 1 ? '#dc2626' : '#0f172a',
-                        cursor: hasSubmitted || timeLeft === 0 ? 'not-allowed' : 'pointer',
+                        cursor: hasSubmitted || timeLeft === 0 ? 'default' : 'pointer',
+                        border: selectedOption === 1 ? '2.5px solid #dc2626' : '1px solid #e2e8f0',
+                        background: selectedOption === 1 ? '#fef2f2' : '#ffffff',
+                        color: selectedOption === 1 ? '#991b1b' : '#1e293b',
+                        boxShadow: selectedOption === 1 ? '0 4px 12px rgba(220, 38, 38, 0.15)' : 'none',
                         transition: 'all 0.15s ease'
                       }}
                     >
@@ -644,30 +701,55 @@ const QuizView = () => {
 
                 {/* 4. Fill in the Blank Input */}
                 {qType === 'fill_in_the_blank' && (
-                  <form onSubmit={handleTextSubmit} style={{ maxWidth: '500px' }}>
-                    <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Type your answer here..."
-                        value={textResponse}
-                        onChange={e => setTextResponse(e.target.value)}
-                        disabled={hasSubmitted || timeLeft === 0}
-                        style={{ fontSize: '1.1rem', padding: '0.75rem 1rem' }}
-                        autoFocus
-                      />
-                      {!hasSubmitted && (
-                        <button
-                          type="submit"
-                          className="btn"
-                          disabled={!textResponse.trim() || timeLeft === 0}
-                          style={{ width: 'auto', padding: '0.75rem 1.5rem', fontWeight: 600 }}
-                        >
-                          Submit
-                        </button>
-                      )}
-                    </div>
-                  </form>
+                  <div style={{ maxWidth: '560px' }}>
+                    <form onSubmit={handleTextSubmit}>
+                      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Type your fill-in-the-blank answer..."
+                          value={textResponse}
+                          onChange={e => setTextResponse(e.target.value)}
+                          disabled={hasSubmitted || timeLeft === 0}
+                          style={{ fontSize: '1.05rem', padding: '0.75rem 1rem', border: hasSubmitted ? '1.5px solid #10b981' : '1px solid #cbd5e1' }}
+                          autoFocus
+                        />
+                        {!hasSubmitted && (
+                          <button
+                            type="submit"
+                            className="btn"
+                            disabled={!textResponse.trim() || timeLeft === 0}
+                            style={{ width: 'auto', padding: '0.75rem 1.75rem', fontWeight: 700 }}
+                          >
+                            Submit Answer
+                          </button>
+                        )}
+                      </div>
+                    </form>
+
+                    {hasSubmitted && (
+                      <div style={{
+                        padding: '0.75rem 1rem',
+                        borderRadius: '6px',
+                        background: '#ecfdf5',
+                        border: '1px solid #a7f3d0',
+                        color: '#065f46',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.92rem',
+                        fontWeight: 600
+                      }}>
+                        <span>✅ Answer Submitted:</span>
+                        <span style={{ color: '#047857', background: '#ffffff', padding: '2px 8px', borderRadius: '4px', border: '1px solid #6ee7b7' }}>
+                          "{textResponse}"
+                        </span>
+                        <span style={{ fontSize: '0.8rem', color: '#059669', marginLeft: 'auto', fontWeight: 500 }}>
+                          (Awaiting next question)
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* 5. Formatted Code Editor / Essay Area */}

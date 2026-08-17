@@ -13,6 +13,8 @@ router.get('/:id/full', requireRole('teacher'), quizController.getFullQuiz);
 router.put('/:id', requireRole('teacher'), quizController.updateQuiz);
 router.post('/:id/duplicate', requireRole('teacher'), quizController.duplicateQuiz);
 router.patch('/:id/close', requireRole('teacher'), quizController.closeQuiz);
+router.get('/:id/evaluations', requireRole('teacher'), quizController.getQuizEvaluations);
+router.put('/attempt/:attemptId/grade', requireRole('teacher'), quizController.gradeStudentAttempt);
 
 // Student only routes
 router.post('/join', requireRole('student'), quizController.joinQuiz);

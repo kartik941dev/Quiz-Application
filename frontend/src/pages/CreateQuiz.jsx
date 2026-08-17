@@ -206,6 +206,19 @@ const CreateQuiz = () => {
     }
   };
 
+  const insertBlankMarker = (qIndex, marker = '______') => {
+    const newQuestions = [...questions];
+    const currentText = newQuestions[qIndex].text || '';
+    if (currentText.includes('______') || currentText.includes('[blank]')) {
+      newQuestions[qIndex].text = `${currentText} ${marker}`;
+    } else if (currentText.trim()) {
+      newQuestions[qIndex].text = `${currentText.trim()} ${marker}`;
+    } else {
+      newQuestions[qIndex].text = `The capital of France is ${marker}.`;
+    }
+    setQuestions(newQuestions);
+  };
+
   const addQuestion = (customData = null) => {
     const newQ = customData ? {
       text: customData.text || '',
@@ -600,15 +613,107 @@ const CreateQuiz = () => {
 
               {/* Question Text */}
               <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', margin: 0 }}>
+                    Question Prompt:
+                  </label>
+                  {q.type === 'fill_in_the_blank' && (
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Insert into prompt:</span>
+                      <button
+                        type="button"
+                        onClick={() => insertBlankMarker(qIndex, '______')}
+                        style={{
+                          background: 'var(--primary-subtle)',
+                          color: 'var(--primary)',
+                          border: '1px solid var(--primary-border)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ➕ Insert ______
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertBlankMarker(qIndex, '[blank]')}
+                        style={{
+                          background: '#f1f5f9',
+                          color: '#334155',
+                          border: '1px solid #cbd5e1',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ➕ Insert [blank]
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <input
                   type="text"
                   className="form-control"
                   value={q.text}
                   onChange={(e) => handleQuestionChange(qIndex, 'text', e.target.value)}
                   required
-                  placeholder="Enter question prompt..."
+                  placeholder={q.type === 'fill_in_the_blank' ? 'e.g. The capital of France is ______.' : 'Enter question prompt...'}
                   style={{ fontSize: '0.98rem', fontWeight: 500 }}
                 />
+
+                {/* Fill in Blank Guide & Live Preview */}
+                {q.type === 'fill_in_the_blank' && (
+                  <div style={{
+                    marginTop: '0.6rem',
+                    padding: '0.75rem 1rem',
+                    background: '#f8fafc',
+                    borderRadius: '6px',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '0.84rem'
+                  }}>
+                    <div style={{ color: '#475569', marginBottom: '0.35rem' }}>
+                      💡 <strong>How it works:</strong> Type your question and place <code>______</code> or <code>[blank]</code> where the student should fill in their answer.
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem', color: '#0f172a' }}>
+                      <strong style={{ color: 'var(--primary)', fontSize: '0.8rem' }}>Student View Preview:</strong>
+                      <span style={{ fontStyle: 'italic', background: '#ffffff', padding: '3px 8px', borderRadius: '4px', border: '1px dashed #cbd5e1' }}>
+                        {q.text ? (
+                          q.text.includes('______') || q.text.includes('[blank]') ? (
+                            q.text.split(/______+|\[blank\]/i).map((part, pIdx, arr) => (
+                              <React.Fragment key={pIdx}>
+                                {part}
+                                {pIdx < arr.length - 1 && (
+                                  <span style={{ 
+                                    display: 'inline-block', 
+                                    minWidth: '70px', 
+                                    margin: '0 4px', 
+                                    borderBottom: '2px solid var(--primary)', 
+                                    background: 'var(--primary-subtle)', 
+                                    color: 'var(--primary)', 
+                                    textAlign: 'center', 
+                                    fontWeight: 700,
+                                    fontSize: '0.8rem',
+                                    borderRadius: '2px'
+                                  }}>
+                                    [ Input ]
+                                  </span>
+                                )}
+                              </React.Fragment>
+                            ))
+                          ) : (
+                            <span>{q.text} <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>[ ______ ]</span></span>
+                          )
+                        ) : (
+                          <span style={{ color: '#94a3b8' }}>The capital of France is [ Input ].</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Dynamic Type-Specific Inputs */}
@@ -661,7 +766,7 @@ const CreateQuiz = () => {
                   </label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                     {q.options.map((opt, oIndex) => {
-                      const isChecked = (q.correctOptionIndices || []).includes(oIndex);
+                      const isChecked = Array.isArray(q.correctOptionIndices) && q.correctOptionIndices.includes(oIndex);
                       return (
                         <div key={oIndex} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <input
@@ -698,20 +803,21 @@ const CreateQuiz = () => {
               {q.type === 'true_false' && (
                 <div style={{ marginBottom: '1rem' }}>
                   <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                    Select the correct answer:
+                    Select the Correct Statement:
                   </label>
                   <div style={{ display: 'flex', gap: '1rem' }}>
                     <button
                       type="button"
                       onClick={() => handleQuestionChange(qIndex, 'correctOptionIndex', 0)}
                       style={{
-                        padding: '0.65rem 1.5rem',
-                        borderRadius: 'var(--radius-md)',
-                        border: q.correctOptionIndex === 0 ? '2px solid var(--primary)' : '1px solid var(--border-subtle)',
-                        background: q.correctOptionIndex === 0 ? 'var(--primary-subtle)' : '#ffffff',
-                        color: q.correctOptionIndex === 0 ? 'var(--primary)' : 'var(--text-main)',
-                        fontWeight: 700,
-                        cursor: 'pointer'
+                        flex: 1,
+                        padding: '0.75rem',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        border: q.correctOptionIndex === 0 ? '2px solid #10b981' : '1px solid var(--border-subtle)',
+                        background: q.correctOptionIndex === 0 ? '#ecfdf5' : '#ffffff',
+                        color: q.correctOptionIndex === 0 ? '#065f46' : 'var(--text-main)'
                       }}
                     >
                       True
@@ -720,13 +826,14 @@ const CreateQuiz = () => {
                       type="button"
                       onClick={() => handleQuestionChange(qIndex, 'correctOptionIndex', 1)}
                       style={{
-                        padding: '0.65rem 1.5rem',
-                        borderRadius: 'var(--radius-md)',
-                        border: q.correctOptionIndex === 1 ? '2px solid var(--primary)' : '1px solid var(--border-subtle)',
-                        background: q.correctOptionIndex === 1 ? 'var(--primary-subtle)' : '#ffffff',
-                        color: q.correctOptionIndex === 1 ? 'var(--primary)' : 'var(--text-main)',
-                        fontWeight: 700,
-                        cursor: 'pointer'
+                        flex: 1,
+                        padding: '0.75rem',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        border: q.correctOptionIndex === 1 ? '2px solid #ef4444' : '1px solid var(--border-subtle)',
+                        background: q.correctOptionIndex === 1 ? '#fef2f2' : '#ffffff',
+                        color: q.correctOptionIndex === 1 ? '#991b1b' : 'var(--text-main)'
                       }}
                     >
                       False
@@ -738,9 +845,15 @@ const CreateQuiz = () => {
               {/* 4. Fill in the Blank */}
               {q.type === 'fill_in_the_blank' && (
                 <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                    Accepted Answers (Graded case-insensitively):
-                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)', margin: 0 }}>
+                      Accepted Answer Key (Case-insensitive):
+                    </label>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      ✓ Automatically matches regardless of capitalization or extra spaces
+                    </span>
+                  </div>
+                  
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {(q.acceptedAnswers || ['']).map((ans, aIndex) => (
                       <div key={aIndex} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -749,17 +862,29 @@ const CreateQuiz = () => {
                           className="form-control"
                           value={ans}
                           onChange={e => handleAcceptedAnswerChange(qIndex, aIndex, e.target.value)}
-                          placeholder={`Accepted variation ${aIndex + 1} (e.g. "Paris", "paris")`}
+                          placeholder={`Accepted variation ${aIndex + 1} (e.g. "Paris", "paris", "City of Paris")`}
                           required
-                          style={{ maxWidth: '400px' }}
+                          style={{ maxWidth: '420px', fontSize: '0.9rem' }}
                         />
                         {q.acceptedAnswers.length > 1 && (
-                          <button type="button" onClick={() => removeAcceptedAnswer(qIndex, aIndex)} style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer' }}>×</button>
+                          <button 
+                            type="button" 
+                            onClick={() => removeAcceptedAnswer(qIndex, aIndex)} 
+                            style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '1.1rem', padding: '0 4px' }}
+                            title="Remove this variation"
+                          >
+                            ×
+                          </button>
                         )}
                       </div>
                     ))}
                   </div>
-                  <button type="button" onClick={() => addAcceptedAnswer(qIndex)} style={{ marginTop: '0.5rem', background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}>
+                  
+                  <button 
+                    type="button" 
+                    onClick={() => addAcceptedAnswer(qIndex)} 
+                    style={{ marginTop: '0.6rem', background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.84rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
                     + Add Alternate Spelling / Variation
                   </button>
                 </div>

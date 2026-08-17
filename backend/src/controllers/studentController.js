@@ -38,6 +38,7 @@ exports.getStudentDashboardStats = async (req, res) => {
         score: studentScore,
         totalQuestions: a.totalQuestions || (quiz ? quiz.questions?.length : 0) || 1,
         totalMarks: totalPossibleMarks,
+        hasPendingReview: Boolean(a.hasPendingReview || (a.answers || []).some(ans => ans.evaluationStatus === 'pending_review')),
         date: a.createdAt,
         percentage: pct.toFixed(1)
       };

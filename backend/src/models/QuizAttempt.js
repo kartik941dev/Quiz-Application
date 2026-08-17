@@ -7,7 +7,13 @@ const answerSchema = new mongoose.Schema({
   textResponse: { type: String, default: '' },
   timeTaken: { type: Number, default: 0 },
   isCorrect: { type: Boolean, default: false },
-  marksAwarded: { type: Number, default: 0 }
+  marksAwarded: { type: Number, default: 0 },
+  evaluationStatus: { 
+    type: String, 
+    enum: ['auto_graded', 'pending_review', 'graded'], 
+    default: 'auto_graded' 
+  },
+  teacherFeedback: { type: String, default: '' }
 }, { _id: false });
 
 const quizAttemptSchema = new mongoose.Schema({
@@ -16,6 +22,7 @@ const quizAttemptSchema = new mongoose.Schema({
   answers: [answerSchema],
   score: { type: Number, required: true },
   totalQuestions: { type: Number, required: true },
+  hasPendingReview: { type: Boolean, default: false },
   startedAt: { type: Date, default: Date.now },
   completedAt: { type: Date },
   tabSwitchCount: { type: Number, default: 0 },

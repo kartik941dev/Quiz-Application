@@ -88,142 +88,168 @@ const ResultsView = () => {
   if (loading) return <div className="loading" style={{ color: 'var(--text-main)', textAlign: 'center', marginTop: '50px' }}>Loading Results...</div>;
   if (error) return <div className="error-message" style={{ textAlign: 'center', margin: '3rem auto', maxWidth: '600px' }}>{error}</div>;
 
-  const { score, results, totalMarks, allowReattempt } = resultsData;
+  const { score, results, totalMarks, allowReattempt, hasPendingReview } = resultsData;
   const percentage = totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0;
 
   return (
     <div className="dashboard" style={{ padding: '2rem', maxWidth: '850px', margin: '0 auto' }}>
       
+      {/* Pending Evaluation Banner */}
+      {hasPendingReview && (
+        <div style={{
+          padding: '1rem 1.25rem',
+          borderRadius: '8px',
+          background: '#fffbeb',
+          border: '1.5px solid #fde68a',
+          color: '#92400e',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontSize: '0.92rem'
+        }}>
+          <span style={{ fontSize: '1.4rem' }}>⏳</span>
+          <div>
+            <strong>Teacher Evaluation in Progress:</strong> Your quiz contains code or essay questions that are being evaluated manually by your teacher. Your final marks will update once graded.
+          </div>
+        </div>
+      )}
+
       {/* Score Summary Card */}
       <div className="glass-card" style={{ marginBottom: '2rem', textAlign: 'center', padding: '2.5rem' }}>
         <h2 style={{ fontSize: '1.75rem', marginBottom: '0.75rem', color: 'var(--text-main)' }}>Quiz Results</h2>
         <div style={{ fontSize: '3.75rem', fontWeight: 800, color: score >= (totalMarks * 0.5) ? '#059669' : '#dc2626', marginBottom: '0.5rem', letterSpacing: '-0.02em' }}>
-          {score} / {totalMarks}
+          {score} <span style={{ fontSize: '1.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {totalMarks}</span>
         </div>
-        <div style={{ fontSize: '1.15rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-          You scored {percentage}%
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginTop: '1.75rem', flexWrap: 'wrap' }}>
+        <p style={{ fontSize: '1.15rem', color: 'var(--text-body)', margin: '0 0 1.5rem 0', fontWeight: 500 }}>
+          Accuracy: <strong style={{ color: 'var(--text-main)' }}>{percentage}%</strong>
+        </p>
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           {allowReattempt && (
             <button 
-              type="button" 
-              className="btn" 
-              onClick={handleReattempt} 
-              style={{ width: 'auto', padding: '0.65rem 1.75rem', fontWeight: 700 }}
+              type="button"
+              className="btn"
+              onClick={handleReattempt}
+              style={{ width: 'auto', padding: '0.65rem 1.75rem', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
             >
               🔄 Reattempt Quiz
             </button>
           )}
+
           <button 
-            type="button" 
-            className="btn btn-neutral" 
-            onClick={() => navigate('/student-dashboard')} 
-            style={{ width: 'auto', padding: '0.65rem 1.5rem', fontWeight: 600 }}
+            type="button"
+            className="btn btn-neutral"
+            onClick={() => navigate('/student-dashboard')}
+            style={{ width: 'auto', padding: '0.65rem 1.5rem', fontSize: '0.92rem' }}
           >
-            Back to Dashboard
+            Dashboard
           </button>
         </div>
       </div>
 
-      {/* Questions Breakdown List */}
+      {/* Question Breakdown */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-main)', fontSize: '1.35rem', fontWeight: 700 }}>Review Answers</h3>
+
         {results.map((q, index) => {
+          const qType = q.type || 'single_choice';
           const isDoubtOpen = activeDoubtIndex === index;
           const userDoubt = submittedDoubts[index];
-          const qType = q.type || 'single_choice';
+          const isPending = q.evaluationStatus === 'pending_review';
 
           return (
             <div 
-              key={q._id || index} 
-              className="glass-card" 
+              key={index} 
+              className="glass-card"
               style={{ 
-                borderLeft: q.isCorrect ? '5px solid #10b981' : '5px solid #ef4444',
+                borderLeft: `4px solid ${isPending ? '#f59e0b' : (q.isCorrect ? '#10b981' : '#ef4444')}`,
                 padding: '1.75rem'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                    <span style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>
-                      {qType === 'multiple_choice' ? 'Multiple Choice' : (qType === 'true_false' ? 'True / False' : (qType === 'fill_in_the_blank' ? 'Fill in Blank' : (qType === 'essay_code' ? `Code (${q.codeLanguage || 'General'})` : 'Single Choice')))}
-                    </span>
-                  </div>
-                  <h3 style={{ marginTop: 0, fontSize: '1.2rem', color: 'var(--text-main)' }}>
-                    {index + 1}. {q.text}
-                  </h3>
-                </div>
-                
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   <span style={{ 
-                    padding: '0.25rem 0.65rem', 
-                    borderRadius: 'var(--radius-sm)', 
-                    background: q.marksAwarded > 0 ? 'var(--status-success-bg)' : (q.marksAwarded < 0 ? 'var(--status-error-bg)' : '#f1f5f9'), 
-                    color: q.marksAwarded > 0 ? 'var(--status-success-text)' : (q.marksAwarded < 0 ? 'var(--status-error-text)' : 'var(--text-muted)'), 
-                    fontWeight: 700,
-                    fontSize: '0.85rem'
+                    fontSize: '0.82rem', 
+                    padding: '2px 8px', 
+                    borderRadius: '4px', 
+                    background: 'var(--primary-subtle)', 
+                    color: 'var(--primary)', 
+                    fontWeight: 700 
                   }}>
-                    {q.marksAwarded > 0 ? `+${q.marksAwarded}` : q.marksAwarded} / {q.questionMarks}
+                    Q{index + 1}
                   </span>
-                  
+                  <span style={{ fontSize: '0.78rem', padding: '2px 6px', borderRadius: '4px', background: '#f1f5f9', color: '#475569', fontWeight: 600 }}>
+                    {qType === 'multiple_choice' ? 'Multiple Choice' : (qType === 'true_false' ? 'True / False' : (qType === 'fill_in_the_blank' ? 'Fill Blank' : (qType === 'essay_code' ? `Code (${q.codeLanguage || 'General'})` : 'Single Choice')))}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span style={{ 
-                    padding: '0.25rem 0.65rem', 
-                    borderRadius: 'var(--radius-sm)', 
-                    background: q.isCorrect ? 'var(--status-success-bg)' : 'var(--status-error-bg)', 
-                    color: q.isCorrect ? 'var(--status-success-text)' : 'var(--status-error-text)', 
-                    fontWeight: 700,
-                    fontSize: '0.85rem'
+                    fontSize: '0.85rem', 
+                    fontWeight: 700, 
+                    color: isPending ? '#d97706' : (q.isCorrect ? '#059669' : '#dc2626') 
                   }}>
-                    {q.isCorrect ? 'Correct' : 'Incorrect'}
+                    {isPending ? '⏳ Awaiting Teacher Evaluation' : (q.isCorrect ? `+${q.marksAwarded || q.marks || 1} Marks (Correct)` : `0 Marks`)}
                   </span>
                 </div>
               </div>
 
-              {/* 1. Options Review (Single Choice, Multiple Choice, True/False) */}
-              {(qType === 'single_choice' || qType === 'true_false' || qType === 'multiple_choice') && (
-                <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                  {q.options.map((opt, oIndex) => {
-                    let bgColor = '#ffffff';
-                    let border = '1px solid #e2e8f0';
-                    let textColor = 'var(--text-body)';
+              <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '1.1rem', lineHeight: '1.4' }}>
+                {q.text}
+              </h4>
 
-                    const isSingleCorrect = oIndex === q.correctOptionIndex;
-                    const isMultiCorrect = Array.isArray(q.correctOptionIndices) && q.correctOptionIndices.includes(oIndex);
-                    const isCorrectAnswer = qType === 'multiple_choice' ? isMultiCorrect : isSingleCorrect;
+              {/* 1. Multiple Choice / Single Choice Options List */}
+              {(qType === 'single_choice' || qType === 'multiple_choice' || qType === 'true_false') && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
+                  {q.options.map((opt, optIndex) => {
+                    const isSelected = qType === 'multiple_choice'
+                      ? Array.isArray(q.selectedOptionIndices) && q.selectedOptionIndices.includes(optIndex)
+                      : q.selectedOptionIndex === optIndex;
 
-                    const isSingleSelected = oIndex === q.userSelectedOptionIndex;
-                    const isMultiSelected = Array.isArray(q.userSelectedOptionIndices) && q.userSelectedOptionIndices.includes(oIndex);
-                    const isUserSelected = qType === 'multiple_choice' ? isMultiSelected : isSingleSelected;
+                    const isCorrect = qType === 'multiple_choice'
+                      ? Array.isArray(q.correctOptionIndices) && q.correctOptionIndices.includes(optIndex)
+                      : q.correctOptionIndex === optIndex;
 
-                    if (isCorrectAnswer) {
-                      bgColor = 'var(--status-success-bg)';
+                    let bg = '#ffffff';
+                    let border = '1px solid var(--border-subtle)';
+                    let color = 'var(--text-main)';
+
+                    if (isSelected && isCorrect) {
+                      bg = 'var(--status-success-bg)';
                       border = '1.5px solid #10b981';
-                      textColor = '#065f46';
-                    } else if (isUserSelected && !isCorrectAnswer) {
-                      bgColor = 'var(--status-error-bg)';
+                      color = '#065f46';
+                    } else if (isSelected && !isCorrect) {
+                      bg = 'var(--status-error-bg)';
                       border = '1.5px solid #ef4444';
-                      textColor = '#991b1b';
+                      color = '#991b1b';
+                    } else if (!isSelected && isCorrect) {
+                      bg = 'var(--status-success-bg)';
+                      border = '1px dashed #10b981';
+                      color = '#065f46';
                     }
 
                     return (
                       <div 
-                        key={oIndex} 
-                        style={{ 
-                          padding: '0.85rem 1rem', 
-                          background: bgColor, 
-                          border, 
-                          borderRadius: 'var(--radius-md)', 
-                          display: 'flex', 
+                        key={optIndex}
+                        style={{
+                          padding: '0.75rem 1rem',
+                          borderRadius: 'var(--radius-md)',
+                          background: bg,
+                          border: border,
+                          color: color,
+                          fontSize: '0.95rem',
+                          fontWeight: isSelected || isCorrect ? 600 : 400,
+                          display: 'flex',
                           justifyContent: 'space-between',
-                          alignItems: 'center',
-                          color: textColor
+                          alignItems: 'center'
                         }}
                       >
-                        <span style={{ fontSize: '0.95rem', fontWeight: isCorrectAnswer ? 600 : 400 }}>
-                          {opt}
-                        </span>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>
-                          {isUserSelected && <span style={{ marginRight: '0.5rem' }}>👤 Your Choice</span>}
-                          {isCorrectAnswer && <span>✅ Correct</span>}
+                        <span>{opt}</span>
+                        <div style={{ display: 'flex', gap: '0.4rem', fontSize: '0.8rem', fontWeight: 700 }}>
+                          {isSelected && <span style={{ color: isCorrect ? '#059669' : '#dc2626' }}>[Your Choice]</span>}
+                          {isCorrect && <span style={{ color: '#059669' }}>✓ Correct</span>}
                         </div>
                       </div>
                     );
@@ -236,10 +262,10 @@ const ResultsView = () => {
                 <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                   <div style={{ padding: '0.85rem 1rem', background: q.isCorrect ? 'var(--status-success-bg)' : 'var(--status-error-bg)', border: `1.5px solid ${q.isCorrect ? '#10b981' : '#ef4444'}`, borderRadius: 'var(--radius-md)' }}>
                     <div style={{ fontSize: '0.82rem', fontWeight: 600, color: q.isCorrect ? '#065f46' : '#991b1b', marginBottom: '0.2rem' }}>
-                      Your Answer:
+                      Your Submitted Answer:
                     </div>
                     <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                      {q.userTextResponse || '(No response provided)'}
+                      {q.textResponse || q.userTextResponse || '(No response provided)'}
                     </div>
                   </div>
 
@@ -258,15 +284,40 @@ const ResultsView = () => {
 
               {/* 3. Code / Essay Review */}
               {qType === 'essay_code' && (
-                <div style={{ marginTop: '1.25rem' }}>
+                <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <div style={{ borderRadius: '8px', border: '1px solid #cbd5e1', overflow: 'hidden', background: '#0f172a' }}>
-                    <div style={{ padding: '0.4rem 0.85rem', background: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#94a3b8', fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                      <Code2 size={14} /> Your Submitted Code / Response:
+                    <div style={{ padding: '0.4rem 0.85rem', background: '#1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#94a3b8', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Code2 size={14} /> Your Submitted Code / Response:
+                      </div>
+                      <span style={{
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        fontSize: '0.72rem',
+                        background: isPending ? '#fef3c7' : '#ecfdf5',
+                        color: isPending ? '#b45309' : '#047857',
+                        fontWeight: 700
+                      }}>
+                        {isPending ? '⏳ Evaluation Pending' : `Marks: ${q.marksAwarded || 0}/${q.marks}`}
+                      </span>
                     </div>
                     <pre style={{ margin: 0, padding: '1rem', color: '#f8fafc', fontFamily: 'monospace', fontSize: '0.9rem', whiteSpace: 'pre-wrap' }}>
-                      {q.userTextResponse || '(Empty submission)'}
+                      {q.textResponse || q.userTextResponse || '(Empty submission)'}
                     </pre>
                   </div>
+
+                  {q.teacherFeedback && (
+                    <div style={{
+                      padding: '0.85rem 1rem',
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      borderRadius: '6px',
+                      color: '#065f46',
+                      fontSize: '0.88rem'
+                    }}>
+                      <strong>👨‍🏫 Teacher Feedback: </strong> {q.teacherFeedback}
+                    </div>
+                  )}
                 </div>
               )}
 

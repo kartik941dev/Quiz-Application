@@ -55,6 +55,7 @@ module.exports = (io) => {
         const answers = state.studentAnswers[studentId] || [];
         const startedAt = state.studentStartTime[studentId] || now;
         const suspicious = state.suspiciousUsers[studentId] || { fastAnswerCount: 0, tabSwitchCount: 0, flagged: false };
+        const hasPendingReview = Boolean(answers.some(a => a.evaluationStatus === 'pending_review'));
 
         try {
           await QuizAttempt.findOneAndUpdate(
@@ -64,6 +65,7 @@ module.exports = (io) => {
                 score, 
                 totalQuestions, 
                 answers,
+                hasPendingReview,
                 startedAt: new Date(startedAt),
                 completedAt: new Date(now),
                 tabSwitchCount: suspicious.tabSwitchCount,
@@ -658,6 +660,7 @@ module.exports = (io) => {
         const qType = question.type || 'single_choice';
 
         let isCorrect = false;
+        let evaluationStatus = 'auto_graded';
 
         if (qType === 'single_choice' || qType === 'true_false') {
           const selectedIdx = Number(selectedOptionIndex);
@@ -673,15 +676,19 @@ module.exports = (io) => {
           const correctSet = new Set(correctIndices);
           isCorrect = studentSet.size === correctSet.size && [...studentSet].every(idx => correctSet.has(idx));
         } else if (qType === 'fill_in_the_blank') {
-          const cleanText = (textResponse || '').trim().toLowerCase();
+          const normalizeText = (str) => (str || '').toString().trim().toLowerCase().replace(/^[.,/#!$%^&*;:{}=\-_`~()?"']+|[.,/#!$%^&*;:{}=\-_`~()?"']+$/g, '').replace(/\s+/g, ' ');
+          const cleanStudentText = normalizeText(textResponse);
           const accepted = Array.isArray(question.acceptedAnswers) ? question.acceptedAnswers : [];
-          isCorrect = accepted.some(a => (a || '').trim().toLowerCase() === cleanText);
+          isCorrect = accepted.some(a => normalizeText(a) === cleanStudentText);
         } else if (qType === 'essay_code') {
-          // Code / Essay responses are recorded with full participation score
-          isCorrect = Boolean((textResponse || '').trim());
+          // Code / Essay responses require manual grading by the teacher
+          isCorrect = false;
+          evaluationStatus = 'pending_review';
         }
 
-        const marksAwarded = isCorrect ? (question.marks || 1) : (state.quizDoc.negativeMarkingEnabled ? -(question.negativeMarks || 0) : 0);
+        const marksAwarded = qType === 'essay_code'
+          ? 0 // Evaluated manually by teacher
+          : (isCorrect ? (question.marks || 1) : (state.quizDoc.negativeMarkingEnabled ? -(question.negativeMarks || 0) : 0));
 
         if (!state.studentAnswers[userId]) state.studentAnswers[userId] = [];
         state.studentAnswers[userId].push({
@@ -691,6 +698,8 @@ module.exports = (io) => {
           textResponse: textResponse || '',
           isCorrect,
           marksAwarded,
+          evaluationStatus,
+          teacherFeedback: '',
           timeTaken: responseTime
         });
 
@@ -722,6 +731,28 @@ module.exports = (io) => {
           state.studentScores[userId].score -= (question.negativeMarks || 0);
         }
         state.studentScores[userId].lastAnswerTime = now;
+
+        // Acknowledge submission back to student socket
+        socket.emit('answer-submitted', {
+          questionIndex,
+          isCorrect,
+          textResponse: textResponse || '',
+          selectedOptionIndex,
+          selectedOptionIndices
+        });
+
+        // Emit live answer update to Teacher screen
+        if (state.teacherSocketId) {
+          io.to(state.teacherSocketId).emit('answer-update', {
+            userId,
+            userName: state.studentNames[userId] || 'Student',
+            selectedOptionIndex,
+            selectedOptionIndices,
+            textResponse: textResponse || '',
+            isCorrect,
+            marksAwarded
+          });
+        }
 
         console.log(`[SOCKET] User ${userId} answered Q${questionIndex} (${qType}): isCorrect=${isCorrect}, Score=${state.studentScores[userId].score}`);
       } catch (err) {
