@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import TeacherDashboard from './pages/TeacherDashboard';
+import CreateQuiz from './pages/CreateQuiz';
 import TeacherLiveQuiz from './pages/TeacherLiveQuiz';
 import StudentDashboard from './pages/StudentDashboard';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
@@ -28,6 +29,18 @@ function App() {
             <Route path="/teacher-dashboard" element={
               <ProtectedRoute allowedRoles={['teacher']}>
                 <TeacherDashboard />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/create-quiz" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <CreateQuiz />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/edit-quiz/:id" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <CreateQuiz />
               </ProtectedRoute>
             } />
             
