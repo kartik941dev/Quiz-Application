@@ -59,22 +59,21 @@ const ProfileDropdown = () => {
       <div 
         onClick={() => setIsOpen(!isOpen)}
         style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #646cff 0%, #4a51e6 100%)',
+          width: '38px',
+          height: '38px',
+          borderRadius: 'var(--radius-md)',
+          background: 'var(--primary)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'white',
-          fontWeight: 'bold',
+          color: '#ffffff',
+          fontWeight: 700,
+          fontSize: '0.95rem',
           cursor: 'pointer',
-          border: '2px solid rgba(255,255,255,0.2)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-          transition: 'transform 0.2s'
+          border: '1px solid var(--primary-border)',
+          boxShadow: '0 2px 6px rgba(2, 132, 199, 0.2)',
+          transition: 'background-color 0.15s ease'
         }}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
       >
         {user.name?.[0].toUpperCase() || 'U'}
       </div>
@@ -83,40 +82,39 @@ const ProfileDropdown = () => {
       {isOpen && (
         <div style={{
           position: 'absolute',
-          top: '50px',
+          top: '48px',
           right: '0',
-          width: '220px',
-          background: 'rgba(30, 30, 35, 0.95)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: '12px',
-          border: '1px solid rgba(255,255,255,0.1)',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-          padding: '0.75rem 0',
+          width: '210px',
+          background: '#ffffff',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border-subtle)',
+          boxShadow: '0 10px 25px rgba(15, 23, 42, 0.1)',
+          padding: '0.5rem 0',
           zIndex: 1000,
           overflow: 'hidden'
         }}>
-          <div style={{ padding: '0.5rem 1.25rem 1rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '0.5rem' }}>
-            <div style={{ fontWeight: 'bold', color: 'white' }}>{user.name}</div>
-            <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', textTransform: 'capitalize' }}>{user.role} Account</div>
+          <div style={{ padding: '0.65rem 1.25rem 0.85rem 1.25rem', borderBottom: '1px solid var(--border-subtle)', marginBottom: '0.35rem' }}>
+            <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.92rem' }}>{user.name}</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'capitalize', marginTop: '2px' }}>{user.role} Account</div>
           </div>
 
           {user.role === 'teacher' ? (
             <>
-              <MenuItem onClick={() => handleAction('/teacher-dashboard', 'create')} icon="➕" label="Create Quiz" />
-              <MenuItem onClick={() => handleAction('/teacher-dashboard', 'quizzes')} icon="📚" label="My Quizzes" />
-              <MenuItem onClick={() => handleAction('/teacher/analytics')} icon="📈" label="Analytics" />
+              <MenuItem onClick={() => handleAction('/create-quiz')} label="Create Quiz" />
+              <MenuItem onClick={() => handleAction('/teacher-dashboard')} label="My Quizzes" />
+              <MenuItem onClick={() => handleAction('/teacher/analytics')} label="Analytics" />
             </>
           ) : (
             <>
-              <MenuItem onClick={() => handleAction('/student-dashboard')} icon="🏠" label="Dashboard" />
-              <MenuItem onClick={() => handleAction('/student-dashboard')} icon="🎯" label="Join Quiz" />
+              <MenuItem onClick={() => handleAction('/student-dashboard')} label="Dashboard" />
+              <MenuItem onClick={() => handleAction('/student-dashboard')} label="Join Quiz" />
             </>
           )}
           
-          <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.5rem 0' }} />
+          <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '0.4rem 0' }} />
           
-          <MenuItem onClick={openPasswordModal} icon="🔑" label="Change Password" />
-          <MenuItem onClick={handleLogout} icon="🚪" label="Logout" color="#ff4a4a" />
+          <MenuItem onClick={openPasswordModal} label="Change Password" />
+          <MenuItem onClick={handleLogout} label="Logout" color="#dc2626" />
         </div>
       )}
 
@@ -170,7 +168,7 @@ const ChangePasswordModal = ({ onClose }) => {
     <div style={{
       position: 'fixed',
       inset: 0,
-      background: 'rgba(0,0,0,0.7)',
+      background: 'rgba(15, 23, 42, 0.5)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -179,14 +177,14 @@ const ChangePasswordModal = ({ onClose }) => {
     }} onClick={onClose}>
       <div 
         className="glass-card" 
-        style={{ maxWidth: '400px', width: '100%', padding: '2rem', position: 'relative' }}
+        style={{ maxWidth: '400px', width: '100%', padding: '2rem', position: 'relative', background: '#ffffff' }}
         onClick={e => e.stopPropagation()}
       >
-        <h3 style={{ marginTop: 0, marginBottom: '1.5rem', textAlign: 'center' }}>🔒 Change Password</h3>
+        <h3 style={{ marginTop: 0, marginBottom: '1.5rem', textAlign: 'center', color: 'var(--text-main)' }}>Change Password</h3>
         
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-group">
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)' }}>Current Password</label>
+            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-main)' }}>Current Password</label>
             <input 
               type="password" 
               className="form-control" 
@@ -197,7 +195,7 @@ const ChangePasswordModal = ({ onClose }) => {
           </div>
 
           <div className="form-group">
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)' }}>New Password</label>
+            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-main)' }}>New Password</label>
             <input 
               type="password" 
               className="form-control" 
@@ -208,7 +206,7 @@ const ChangePasswordModal = ({ onClose }) => {
           </div>
 
           <div className="form-group">
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)' }}>Confirm New Password</label>
+            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-main)' }}>Confirm New Password</label>
             <input 
               type="password" 
               className="form-control" 
@@ -221,12 +219,12 @@ const ChangePasswordModal = ({ onClose }) => {
           {feedback.msg && (
             <div style={{ 
               padding: '0.75rem', 
-              borderRadius: '8px', 
-              fontSize: '0.9rem',
+              borderRadius: 'var(--radius-md)', 
+              fontSize: '0.85rem',
               textAlign: 'center',
-              background: feedback.type === 'success' ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 74, 74, 0.2)',
-              color: feedback.type === 'success' ? '#4caf50' : '#ff4a4a',
-              border: `1px solid ${feedback.type === 'success' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(255, 74, 74, 0.3)'}`
+              background: feedback.type === 'success' ? 'var(--status-success-bg)' : 'var(--status-error-bg)',
+              color: feedback.type === 'success' ? 'var(--status-success-text)' : 'var(--status-error-text)',
+              border: `1px solid ${feedback.type === 'success' ? 'var(--status-success-border)' : 'var(--status-error-border)'}`
             }}>
               {feedback.msg}
             </div>
@@ -235,9 +233,9 @@ const ChangePasswordModal = ({ onClose }) => {
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
             <button 
               type="button" 
-              className="btn" 
+              className="btn btn-neutral" 
               onClick={onClose}
-              style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)' }}
+              style={{ width: '100%' }}
             >
               Cancel
             </button>
@@ -245,7 +243,7 @@ const ChangePasswordModal = ({ onClose }) => {
               type="submit" 
               className="btn" 
               disabled={loading}
-              style={{ background: '#646cff' }}
+              style={{ width: '100%' }}
             >
               {loading ? 'Updating...' : 'Update Password'}
             </button>
@@ -256,26 +254,31 @@ const ChangePasswordModal = ({ onClose }) => {
   );
 };
 
-const MenuItem = ({ onClick, icon, label, color = 'rgba(255,255,255,0.8)' }) => (
+const MenuItem = ({ onClick, label, color = '#334155' }) => (
   <div 
     onClick={(e) => {
       e.stopPropagation();
       onClick();
     }}
     style={{
-      padding: '0.75rem 1.25rem',
+      padding: '0.65rem 1.25rem',
       display: 'flex',
       alignItems: 'center',
-      gap: '0.75rem',
       cursor: 'pointer',
-      transition: 'background 0.2s',
+      transition: 'background-color 0.15s ease, color 0.15s ease',
       color: color,
-      fontSize: '0.9rem'
+      fontSize: '0.88rem',
+      fontWeight: 500
     }}
-    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.background = '#f1f5f9';
+      e.currentTarget.style.color = '#0f172a';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.background = 'transparent';
+      e.currentTarget.style.color = color;
+    }}
   >
-    <span style={{ fontSize: '1.1rem' }}>{icon}</span>
     {label}
   </div>
 );

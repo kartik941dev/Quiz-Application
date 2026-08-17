@@ -102,13 +102,13 @@ const AnalyticsDashboard = () => {
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '2rem', color: '#646cff' }}>Quiz Performance Insights</h2>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn" onClick={handleDownloadCSV} disabled={emailStatus.loading} style={{ width: 'auto', background: '#4caf50' }}>Download CSV</button>
-          <button className="btn" onClick={handleDownloadPDF} disabled={emailStatus.loading} style={{ width: 'auto', background: '#e91e63' }}>Download PDF</button>
-          <button className="btn" onClick={handleSendBulkEmails} disabled={emailStatus.loading} style={{ width: 'auto', background: '#646cff' }}>Email All Reports</button>
-          <button className="btn" onClick={() => navigate('/teacher-dashboard')} style={{ width: 'auto', background: 'rgba(255,255,255,0.1)' }}>Back</button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <h2 style={{ fontSize: '1.85rem', color: 'var(--text-main)', margin: 0 }}>Performance Insights</h2>
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <button type="button" className="btn btn-neutral" onClick={handleDownloadCSV} disabled={emailStatus.loading} style={{ width: 'auto', fontSize: '0.88rem' }}>Download CSV</button>
+          <button type="button" className="btn btn-neutral" onClick={handleDownloadPDF} disabled={emailStatus.loading} style={{ width: 'auto', fontSize: '0.88rem' }}>Download PDF</button>
+          <button type="button" className="btn" onClick={handleSendBulkEmails} disabled={emailStatus.loading} style={{ width: 'auto', fontSize: '0.88rem' }}>Email All Reports</button>
+          <button type="button" className="btn btn-neutral" onClick={() => navigate('/teacher-dashboard')} style={{ width: 'auto', fontSize: '0.88rem' }}>Back</button>
         </div>
       </div>
 
@@ -129,14 +129,14 @@ const AnalyticsDashboard = () => {
           <div style={{ height: '300px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.accuracyPerQuestion}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis dataKey="questionIndex" stroke="rgba(255,255,255,0.5)" />
-                <YAxis stroke="rgba(255,255,255,0.5)" domain={[0, 100]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="questionIndex" stroke="#64748b" />
+                <YAxis stroke="#64748b" domain={[0, 100]} />
                 <Tooltip 
-                  contentStyle={{ background: '#1a1a1a', border: '1px solid #333' }}
-                  itemStyle={{ color: '#646cff' }}
+                  contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                  itemStyle={{ color: '#0284c7' }}
                 />
-                <Bar dataKey="accuracy" fill="#646cff" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="accuracy" fill="#0284c7" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -144,18 +144,18 @@ const AnalyticsDashboard = () => {
 
         {/* Time Chart */}
         <div className="glass-card">
-          <h3 style={{ marginBottom: '1.5rem' }}>Avg. Response Time (s)</h3>
+          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Avg. Response Time (s)</h3>
           <div style={{ height: '300px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.avgTimePerQuestion}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis dataKey="questionIndex" stroke="rgba(255,255,255,0.5)" />
-                <YAxis stroke="rgba(255,255,255,0.5)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="questionIndex" stroke="#64748b" />
+                <YAxis stroke="#64748b" />
                 <Tooltip 
-                  contentStyle={{ background: '#1a1a1a', border: '1px solid #333' }}
-                  itemStyle={{ color: '#4caf50' }}
+                  contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                  itemStyle={{ color: '#059669' }}
                 />
-                <Line type="monotone" dataKey="avgTime" stroke="#4caf50" strokeWidth={3} dot={{ fill: '#4caf50' }} />
+                <Line type="monotone" dataKey="avgTime" stroke="#059669" strokeWidth={3} dot={{ fill: '#059669' }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -165,7 +165,7 @@ const AnalyticsDashboard = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem', marginBottom: '2rem' }}>
         {/* Score Distribution */}
         <div className="glass-card">
-          <h3 style={{ marginBottom: '1.5rem' }}>Score Range Distribution</h3>
+          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Score Range Distribution</h3>
           <div style={{ height: '300px', display: 'flex', alignItems: 'center' }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -175,7 +175,7 @@ const AnalyticsDashboard = () => {
                   cy="50%"
                   innerRadius={60}
                   outerRadius={100}
-                  fill="#8884d8"
+                  fill="#0284c7"
                   paddingAngle={5}
                   dataKey="count"
                   nameKey="range"
@@ -185,7 +185,7 @@ const AnalyticsDashboard = () => {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333' }} />
+                <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
@@ -195,35 +195,36 @@ const AnalyticsDashboard = () => {
 
       {/* Top Performers */}
       <div className="glass-card">
-        <h3 style={{ marginBottom: '1.5rem' }}>Top Performers</h3>
+        <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Top Performers</h3>
         <div className="table-container" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.1)' }}>
-                <th style={{ padding: '1rem' }}>Rank</th>
-                <th style={{ padding: '1rem' }}>Student Name</th>
-                <th style={{ padding: '1rem' }}>Score</th>
-                <th style={{ padding: '1rem' }}>Percentage</th>
-                <th style={{ padding: '1rem' }}>Actions</th>
+              <tr style={{ borderBottom: '2px solid var(--border-subtle)' }}>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Rank</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Student Name</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Score</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Percentage</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {data.topPerformers.map((student, index) => (
-                <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: index === 0 ? 'rgba(100, 108, 255, 0.05)' : 'transparent' }}>
+                <tr key={index} style={{ borderBottom: '1px solid var(--border-subtle)', background: index === 0 ? 'var(--primary-subtle)' : 'transparent' }}>
                   <td style={{ padding: '1rem' }}>
                     {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
                   </td>
-                  <td style={{ padding: '1rem', fontWeight: 'bold' }}>{student.name}</td>
-                  <td style={{ padding: '1rem' }}>{student.score}</td>
-                  <td style={{ padding: '1rem', color: '#4caf50' }}>{student.percentage}%</td>
+                  <td style={{ padding: '1rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{student.name}</td>
+                  <td style={{ padding: '1rem', color: 'var(--text-main)' }}>{student.score}</td>
+                  <td style={{ padding: '1rem', color: '#059669', fontWeight: 600 }}>{student.percentage}%</td>
                   <td style={{ padding: '1rem' }}>
                     <button 
-                      className="btn" 
+                      type="button"
+                      className="btn btn-neutral" 
                       onClick={() => handleSendSingleEmail(student.attemptId, student.name)} 
                       disabled={emailStatus.loading || !student.attemptId}
-                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', width: 'auto', background: '#646cff', marginTop: 0 }}
+                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto', marginTop: 0 }}
                     >
-                      📧 Mail Report
+                      Email Report
                     </button>
                   </td>
                 </tr>

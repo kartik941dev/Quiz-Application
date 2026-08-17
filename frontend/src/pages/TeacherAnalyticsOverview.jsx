@@ -27,17 +27,17 @@ const TeacherAnalyticsOverview = () => {
   return (
     <div className="dashboard" style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '2rem', color: '#646cff' }}>📊 Analytics Overview</h2>
-        <button className="btn" onClick={() => navigate('/teacher-dashboard')} style={{ width: 'auto', background: 'rgba(255,255,255,0.1)' }}>Back to Dashboard</button>
+        <h2 style={{ fontSize: '1.85rem', color: 'var(--text-main)', margin: 0 }}>Analytics Overview</h2>
+        <button type="button" className="btn btn-neutral" onClick={() => navigate('/teacher-dashboard')} style={{ width: 'auto', fontSize: '0.88rem' }}>Back to Dashboard</button>
       </div>
 
       {error && <div className="error-message" style={{ marginBottom: '1rem' }}>{error}</div>}
 
       <div className="glass-card">
-        <h3 style={{ marginTop: 0, marginBottom: '1.5rem', color: 'white' }}>Select a Quiz to View Analytics</h3>
+        <h3 style={{ marginTop: 0, marginBottom: '1.5rem', color: 'var(--text-main)', fontSize: '1.35rem', fontWeight: 700, borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1rem' }}>Select a Quiz to View Analytics</h3>
         
         {quizzes.length === 0 ? (
-          <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: '2rem' }}>You haven't created any quizzes yet.</p>
+          <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>You haven't created any quizzes yet.</p>
         ) : (
           <div style={{ display: 'grid', gap: '1rem' }}>
             {quizzes.map((quiz) => (
@@ -50,36 +50,26 @@ const TeacherAnalyticsOverview = () => {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '1.25rem',
-                  background: 'rgba(255,255,255,0.03)',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'var(--bg-card-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)',
                   cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(100, 108, 255, 0.08)';
-                  e.currentTarget.style.borderColor = 'rgba(100, 108, 255, 0.3)';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-                  e.currentTarget.style.transform = 'translateY(0)';
+                  transition: 'all 0.15s ease'
                 }}
               >
                 <div>
-                  <h4 style={{ margin: '0 0 0.25rem 0', color: 'white' }}>{quiz.title}</h4>
+                  <h4 style={{ margin: '0 0 0.35rem 0', color: 'var(--text-main)', fontSize: '1.1rem' }}>{quiz.title}</h4>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                       📅 Created: {new Date(quiz.createdAt).toLocaleDateString()}
                     </span>
                     {quiz.isClosed && (
                       <span style={{ 
                         fontSize: '0.7rem', 
                         padding: '2px 6px', 
-                        background: 'rgba(239, 68, 68, 0.1)', 
-                        color: '#ef4444', 
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        background: '#f1f5f9', 
+                        color: 'var(--text-dim)', 
+                        border: '1px solid var(--border-subtle)',
                         borderRadius: '4px',
                         fontWeight: 'bold'
                       }}>CLOSED</span>
@@ -88,10 +78,22 @@ const TeacherAnalyticsOverview = () => {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>Join Code</div>
-                    <div style={{ fontWeight: 'bold', color: '#646cff', letterSpacing: '1px' }}>{quiz.joinCode}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '2px' }}>Join Code</div>
+                    <div style={{ 
+                      fontWeight: '700', 
+                      color: 'var(--primary)', 
+                      background: 'var(--primary-subtle)',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid var(--primary-border)',
+                      fontFamily: 'monospace',
+                      letterSpacing: '1.5px',
+                      fontSize: '0.88rem'
+                    }}>
+                      {quiz.joinCode}
+                    </div>
                   </div>
-                  <span style={{ fontSize: '1.2rem', color: 'rgba(255,255,255,0.3)' }}>➡️</span>
+                  <span style={{ fontSize: '1.1rem', color: 'var(--text-dim)' }}>→</span>
                 </div>
               </div>
             ))}
