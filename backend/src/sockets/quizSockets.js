@@ -8,27 +8,15 @@ if (!JWT_SECRET) {
 }
 
 // In-Memory State Manager
-const activeQuizzes = {
-  /*
-  quizId: {
-    quizDoc: <MongoDB Quiz Document>,
-    currentQuestionIndex: -1,
-    timerId: null,
-    studentScores: { studentId: { score, lastAnswerTime } },
-    studentNames: { studentId: name },
-    submittedFlags: { 'studentId_questionIndex': true },
-    participants: { userId: socketId }, // Mapping for tracking & kicking
-    timeLeft: number
-  }
-  */
-};
+const activeQuizzes = {};
 
 const shuffleArray = (array) => {
-  for (let i = array.length - 1; i > 0; i--) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  return array;
+  return arr;
 };
 
 const activeSocketUsers = {}; // userId -> socketId
@@ -41,7 +29,7 @@ module.exports = (io) => {
     if (!token) return next(new Error('Authentication error'));
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      socket.user = decoded; // { userId, role, name, ... }
+      socket.user = decoded;
       next();
     } catch (err) {
       next(new Error('Authentication error'));
@@ -124,12 +112,15 @@ module.exports = (io) => {
           
           if (state.autoProgressionTimeoutId) {
             clearTimeout(state.autoProgressionTimeoutId);
+            state.autoProgressionTimeoutId = null;
           }
           
-          // AUTO PROGRESSION (2s delay after time-up)
-          state.autoProgressionTimeoutId = setTimeout(() => {
-            emitNextQuestion(quizId, io);
-          }, 2000);
+          // Auto progress only if mode is auto_timer
+          if (state.progressionMode !== 'manual' && state.progressionMode !== 'self_paced') {
+            state.autoProgressionTimeoutId = setTimeout(() => {
+              emitNextQuestion(quizId, io);
+            }, 2000);
+          }
         } else {
           io.to(quizId).emit('timer', { timeLeft });
         }
@@ -159,7 +150,8 @@ module.exports = (io) => {
 
       const q = state.quizDoc.questions[state.currentQuestionIndex];
       const qNum = state.currentQuestionIndex;
-      const showLeaderboard = qNum > 0 && qNum % (state.quizDoc.leaderboardInterval || 1) === 0;
+      const isLeaderboardEnabled = state.showLeaderboard !== false;
+      const showLeaderboard = isLeaderboardEnabled && qNum > 0 && qNum % (state.quizDoc.leaderboardInterval || 1) === 0;
 
       if (showLeaderboard) {
         const topScores = Object.keys(state.studentScores)
@@ -183,11 +175,44 @@ module.exports = (io) => {
         try {
           if (!activeQuizzes[quizId]) return; 
           state.questionStartTime = Date.now();
+          
+          // Emit sanitized question to students in room
           io.to(quizId).emit('question', {
             questionIndex: state.currentQuestionIndex,
-            question: { text: q.text, options: q.options, timeLimit: q.timeLimit },
+            totalQuestions: state.quizDoc.questions.length,
+            question: { 
+              _id: q._id,
+              text: q.text, 
+              type: q.type || 'single_choice',
+              options: (q.type === 'single_choice' || q.type === 'multiple_choice' || q.type === 'true_false') ? (q.options || []) : [],
+              codeLanguage: q.codeLanguage,
+              timeLimit: q.timeLimit,
+              marks: q.marks || 1
+            },
             timeLeft: q.timeLimit
           });
+
+          // Emit complete question with correct answers to teacher
+          if (state.teacherSocketId) {
+            io.to(state.teacherSocketId).emit('teacher-question-data', {
+              questionIndex: state.currentQuestionIndex,
+              totalQuestions: state.quizDoc.questions.length,
+              question: {
+                _id: q._id,
+                text: q.text,
+                type: q.type || 'single_choice',
+                options: (q.type === 'single_choice' || q.type === 'multiple_choice' || q.type === 'true_false') ? (q.options || []) : [],
+                correctOptionIndex: q.correctOptionIndex,
+                correctOptionIndices: q.correctOptionIndices || [],
+                acceptedAnswers: q.acceptedAnswers || [],
+                codeLanguage: q.codeLanguage,
+                timeLimit: q.timeLimit,
+                marks: q.marks || 1,
+                explanation: q.explanation || ''
+              },
+              timeLeft: q.timeLimit
+            });
+          }
 
           startTimer(quizId, io, q.timeLimit);
         } catch (err) {
@@ -234,21 +259,40 @@ module.exports = (io) => {
                 socket.emit('error-alert', { message: "This quiz is permanently closed and cannot be hosted." });
                 return;
               }
-              // SHUFFLING LOGIC
-              const shuffledQuestions = shuffleArray([...(quiz.questions || [])]).map(q => {
-                const options = [...(q.options || [])];
-                const correctOptionText = options[q.correctOptionIndex];
-                shuffleArray(options);
-                const newCorrectIndex = options.indexOf(correctOptionText);
-                return {
-                  ...q.toObject(),
-                  options,
-                  correctOptionIndex: newCorrectIndex
-                };
+
+              // ALGORITHMIC SHUFFLING
+              let questionsToUse = [...(quiz.questions || [])];
+              if (quiz.shuffleQuestions !== false) {
+                questionsToUse = shuffleArray(questionsToUse);
+              }
+
+              const processedQuestions = questionsToUse.map(q => {
+                const qObj = q.toObject ? q.toObject() : { ...q };
+                
+                // Shuffle options for single_choice & multiple_choice if enabled
+                if (quiz.shuffleOptions !== false && (qObj.type === 'single_choice' || qObj.type === 'multiple_choice') && qObj.options && qObj.options.length > 1) {
+                  const originalOptions = [...qObj.options];
+                  const shuffledOptions = shuffleArray(originalOptions);
+                  
+                  // Remap correct index/indices
+                  if (qObj.type === 'single_choice') {
+                    const correctText = originalOptions[qObj.correctOptionIndex];
+                    qObj.correctOptionIndex = shuffledOptions.indexOf(correctText);
+                  } else if (qObj.type === 'multiple_choice' && Array.isArray(qObj.correctOptionIndices)) {
+                    const correctTexts = qObj.correctOptionIndices.map(idx => originalOptions[idx]);
+                    qObj.correctOptionIndices = correctTexts.map(t => shuffledOptions.indexOf(t));
+                  }
+                  
+                  qObj.options = shuffledOptions;
+                }
+
+                return qObj;
               });
 
               activeQuizzes[quizId] = {
-                quizDoc: { ...quiz.toObject(), questions: shuffledQuestions },
+                quizDoc: { ...quiz.toObject(), questions: processedQuestions },
+                progressionMode: quiz.progressionMode || 'auto_timer',
+                showLeaderboard: quiz.showLeaderboard !== false,
                 currentQuestionIndex: -1,
                 timerId: null,
                 studentScores: {},
@@ -265,7 +309,7 @@ module.exports = (io) => {
                 studentStartTime: {} 
               };
               state = activeQuizzes[quizId];
-              console.log(`[SOCKET] Quiz state initialized with SHUFFLING for ${quizId}`);
+              console.log(`[SOCKET] Quiz state initialized with Advanced Question Suite for ${quizId}`);
             }
           } catch (err) {
             console.error('[SOCKET] Error initializing quiz:', err);
@@ -273,31 +317,33 @@ module.exports = (io) => {
         }
 
         if (state) {
-          // If teacher joins an existing quiz, update their socketId
           if (socket.user.role === 'teacher') {
             state.teacherSocketId = socket.id;
+            
+            // Send complete initial state to teacher including active questions order
+            socket.emit('teacher-init-state', {
+              shuffleQuestions: state.quizDoc.shuffleQuestions !== false,
+              shuffleOptions: state.quizDoc.shuffleOptions !== false,
+              showLeaderboard: state.showLeaderboard !== false,
+              progressionMode: state.progressionMode,
+              totalQuestions: state.quizDoc.questions?.length || 0,
+              currentQuestionIndex: state.currentQuestionIndex,
+              currentQuestion: state.currentQuestionIndex >= 0 ? state.quizDoc.questions[state.currentQuestionIndex] : null,
+              questions: state.quizDoc.questions
+            });
           }
 
-          // REJOIN LOGIC
           if (socket.user.role === 'student') {
-            const userId = socket.user.userId;
-            
-            // Prevent multiple joins from same account in same quiz
-            if (state.participants[userId] && state.participants[userId] !== socket.id) {
-               const oldSocket = io.sockets.sockets.get(state.participants[userId]);
-               if (oldSocket) oldSocket.disconnect();
-            }
-
+            const now = Date.now();
             const disconnectInfo = state.disconnectedUsers[userId];
             if (disconnectInfo) {
-              const now = Date.now();
-              const timeSinceDisconnect = (now - disconnectInfo.lastDisconnectTime) / 1000;
-              
-              if (timeSinceDisconnect > 60) {
-                socket.emit('rejoin-denied', { message: "Rejoin time expired (limit 60s)." });
+              const secondsAway = (now - disconnectInfo.time) / 1000;
+              if (secondsAway > 60) {
+                socket.emit('rejoin-denied', { message: "Rejoin timeout exceeded (Maximum 60 seconds allowed away)." });
                 return;
               }
-              if (disconnectInfo.rejoinCount >= 3) { // Increased to 3 for stability
+
+              if (disconnectInfo.rejoinCount >= 3) {
                 socket.emit('rejoin-denied', { message: "Maximum rejoin attempts exceeded." });
                 return;
               }
@@ -320,9 +366,17 @@ module.exports = (io) => {
             // RESTORE STATE for rejoining student
             if (state.currentQuestionIndex >= 0) {
               const q = state.quizDoc.questions[state.currentQuestionIndex];
-              socket.emit('question', { // Send full question again on rejoin
+              socket.emit('question', {
                 questionIndex: state.currentQuestionIndex,
-                question: { text: q.text, options: q.options, timeLimit: q.timeLimit },
+                question: { 
+                  _id: q._id,
+                  text: q.text, 
+                  type: q.type || 'single_choice',
+                  options: q.options || [],
+                  codeLanguage: q.codeLanguage,
+                  timeLimit: q.timeLimit,
+                  marks: q.marks || 1
+                },
                 timeLeft: state.timeLeft || 0,
                 isRestore: true
               });
@@ -361,7 +415,15 @@ module.exports = (io) => {
         
         io.to(quizId).emit('question', {
           questionIndex: 0,
-          question: { text: q.text, options: q.options, timeLimit: q.timeLimit },
+          question: { 
+            _id: q._id,
+            text: q.text, 
+            type: q.type || 'single_choice',
+            options: q.options || [],
+            codeLanguage: q.codeLanguage,
+            timeLimit: q.timeLimit,
+            marks: q.marks || 1
+          },
           timeLeft: q.timeLimit
         });
 
@@ -427,12 +489,97 @@ module.exports = (io) => {
       }
     });
 
-      socket.on('end-quiz', ({ quizId }) => {
+    socket.on('end-quiz', ({ quizId }) => {
       try {
         if (socket.user.role !== 'teacher') return;
         handleEndQuiz(quizId, io);
       } catch (err) {
         console.error('[SOCKET] Error in end-quiz:', err);
+      }
+    });
+
+    socket.on('toggle-leaderboard', ({ quizId, showLeaderboard }) => {
+      try {
+        if (socket.user.role !== 'teacher') return;
+        const state = activeQuizzes[quizId];
+        if (!state) return;
+
+        state.showLeaderboard = Boolean(showLeaderboard);
+        console.log(`[SOCKET] Quiz ${quizId} live leaderboard status changed: ${state.showLeaderboard}`);
+        io.to(quizId).emit('leaderboard-toggle-status', { showLeaderboard: state.showLeaderboard });
+      } catch (err) {
+        console.error('[SOCKET] Error in toggle-leaderboard:', err);
+      }
+    });
+
+    socket.on('change-progression-mode', ({ quizId, progressionMode }) => {
+      try {
+        if (socket.user.role !== 'teacher') return;
+        const state = activeQuizzes[quizId];
+        if (!state) return;
+
+        state.progressionMode = progressionMode;
+        console.log(`[SOCKET] Quiz ${quizId} progression mode changed to: ${state.progressionMode}`);
+        io.to(quizId).emit('progression-mode-updated', { progressionMode: state.progressionMode });
+      } catch (err) {
+        console.error('[SOCKET] Error in change-progression-mode:', err);
+      }
+    });
+
+    socket.on('toggle-shuffle-questions', async ({ quizId, shuffleQuestions }) => {
+      try {
+        if (socket.user.role !== 'teacher') return;
+        const state = activeQuizzes[quizId];
+        if (!state) return;
+
+        state.quizDoc.shuffleQuestions = Boolean(shuffleQuestions);
+        console.log(`[SOCKET] Quiz ${quizId} shuffleQuestions set to: ${state.quizDoc.shuffleQuestions}`);
+        
+        // If not started yet, re-shuffle questions
+        if (state.currentQuestionIndex === -1) {
+          const originalQuiz = await Quiz.findById(quizId);
+          if (originalQuiz) {
+            let qs = [...(originalQuiz.questions || [])];
+            if (state.quizDoc.shuffleQuestions) {
+              qs = shuffleArray(qs);
+            }
+            state.quizDoc.questions = qs;
+            socket.emit('teacher-init-state', {
+              shuffleQuestions: state.quizDoc.shuffleQuestions,
+              shuffleOptions: state.quizDoc.shuffleOptions !== false,
+              showLeaderboard: state.showLeaderboard !== false,
+              progressionMode: state.progressionMode,
+              totalQuestions: state.quizDoc.questions.length,
+              currentQuestionIndex: -1,
+              questions: state.quizDoc.questions
+            });
+          }
+        }
+
+        io.to(quizId).emit('shuffle-status-updated', {
+          shuffleQuestions: state.quizDoc.shuffleQuestions,
+          shuffleOptions: state.quizDoc.shuffleOptions
+        });
+      } catch (err) {
+        console.error('[SOCKET] Error in toggle-shuffle-questions:', err);
+      }
+    });
+
+    socket.on('toggle-shuffle-options', ({ quizId, shuffleOptions }) => {
+      try {
+        if (socket.user.role !== 'teacher') return;
+        const state = activeQuizzes[quizId];
+        if (!state) return;
+
+        state.quizDoc.shuffleOptions = Boolean(shuffleOptions);
+        console.log(`[SOCKET] Quiz ${quizId} shuffleOptions set to: ${state.quizDoc.shuffleOptions}`);
+        
+        io.to(quizId).emit('shuffle-status-updated', {
+          shuffleQuestions: state.quizDoc.shuffleQuestions,
+          shuffleOptions: state.quizDoc.shuffleOptions
+        });
+      } catch (err) {
+        console.error('[SOCKET] Error in toggle-shuffle-options:', err);
       }
     });
 
@@ -479,12 +626,16 @@ module.exports = (io) => {
       }
     });
 
-
-
     // ==========================================
-    // STUDENT SUBMISSIONS
+    // STUDENT ADVANCED EVALUATION
     // ==========================================
-    socket.on('submit-answer', ({ quizId, questionIndex, selectedOptionIndex }) => {
+    socket.on('submit-answer', ({ 
+      quizId, 
+      questionIndex, 
+      selectedOptionIndex, 
+      selectedOptionIndices, 
+      textResponse 
+    }) => {
       try {
         if (socket.user.role !== 'student') return;
         
@@ -504,21 +655,40 @@ module.exports = (io) => {
 
         const now = Date.now();
         const responseTime = state.questionStartTime ? (now - state.questionStartTime) / 1000 : 0;
+        const qType = question.type || 'single_choice';
 
-        const selectedIdx = Number(selectedOptionIndex);
-        const correctIdx = Number(question.correctOptionIndex);
-        
-        const selectedValue = question.options[selectedIdx];
-        const correctValue = question.options[correctIdx];
-        const isCorrect = selectedValue === correctValue;
+        let isCorrect = false;
+
+        if (qType === 'single_choice' || qType === 'true_false') {
+          const selectedIdx = Number(selectedOptionIndex);
+          const correctIdx = Number(question.correctOptionIndex);
+          const selectedValue = question.options[selectedIdx];
+          const correctValue = question.options[correctIdx];
+          isCorrect = selectedValue === correctValue;
+        } else if (qType === 'multiple_choice') {
+          const studentIndices = Array.isArray(selectedOptionIndices) ? selectedOptionIndices.map(Number) : [];
+          const correctIndices = Array.isArray(question.correctOptionIndices) ? question.correctOptionIndices.map(Number) : [];
+          
+          const studentSet = new Set(studentIndices);
+          const correctSet = new Set(correctIndices);
+          isCorrect = studentSet.size === correctSet.size && [...studentSet].every(idx => correctSet.has(idx));
+        } else if (qType === 'fill_in_the_blank') {
+          const cleanText = (textResponse || '').trim().toLowerCase();
+          const accepted = Array.isArray(question.acceptedAnswers) ? question.acceptedAnswers : [];
+          isCorrect = accepted.some(a => (a || '').trim().toLowerCase() === cleanText);
+        } else if (qType === 'essay_code') {
+          // Code / Essay responses are recorded with full participation score
+          isCorrect = Boolean((textResponse || '').trim());
+        }
 
         const marksAwarded = isCorrect ? (question.marks || 1) : (state.quizDoc.negativeMarkingEnabled ? -(question.negativeMarks || 0) : 0);
 
         if (!state.studentAnswers[userId]) state.studentAnswers[userId] = [];
         state.studentAnswers[userId].push({
           questionId: question._id,
-          selectedOptionIndex: selectedIdx,
-          selectedValue,
+          selectedOptionIndex: typeof selectedOptionIndex === 'number' ? Number(selectedOptionIndex) : undefined,
+          selectedOptionIndices: Array.isArray(selectedOptionIndices) ? selectedOptionIndices : [],
+          textResponse: textResponse || '',
           isCorrect,
           marksAwarded,
           timeTaken: responseTime
@@ -543,58 +713,47 @@ module.exports = (io) => {
         }
 
         if (!state.studentScores[userId]) {
-           state.studentScores[userId] = { score: 0, lastAnswerTime: now };
+          state.studentScores[userId] = { score: 0, lastAnswerTime: now };
         }
 
         if (isCorrect) {
           state.studentScores[userId].score += (question.marks || 1);
-          state.studentScores[userId].lastAnswerTime = now;
         } else if (state.quizDoc.negativeMarkingEnabled) {
           state.studentScores[userId].score -= (question.negativeMarks || 0);
-          state.studentScores[userId].lastAnswerTime = now;
         }
+        state.studentScores[userId].lastAnswerTime = now;
 
-        io.to(quizId).emit('answer-update', {
-          userId,
-          questionIndex,
-          selectedOptionIndex: selectedIdx,
-          isCorrect
-        });
+        console.log(`[SOCKET] User ${userId} answered Q${questionIndex} (${qType}): isCorrect=${isCorrect}, Score=${state.studentScores[userId].score}`);
       } catch (err) {
         console.error('[SOCKET] Error in submit-answer:', err);
       }
     });
 
     socket.on('disconnect', () => {
-      // Find which quiz the user was in and remove from participants
+      console.log(`[SOCKET] User disconnected: ${userId}`);
+      delete activeSocketUsers[userId];
+
       for (const quizId in activeQuizzes) {
         const state = activeQuizzes[quizId];
-        if (state.participants[socket.user.userId]) {
-          delete state.participants[socket.user.userId];
-
-          // Log disconnect for rejoin tracking
+        if (state && state.participants[userId]) {
+          delete state.participants[userId];
+          
           if (socket.user.role === 'student') {
-            if (!state.disconnectedUsers[socket.user.userId]) {
-              state.disconnectedUsers[socket.user.userId] = {
-                lastDisconnectTime: Date.now(),
-                rejoinCount: 0
-              };
-            } else {
-              state.disconnectedUsers[socket.user.userId].lastDisconnectTime = Date.now();
-            }
+            state.disconnectedUsers[userId] = {
+              time: Date.now(),
+              rejoinCount: (state.disconnectedUsers[userId]?.rejoinCount || 0)
+            };
           }
 
           io.to(quizId).emit('participant-update', {
             participants: Object.keys(state.participants).map(id => ({
               userId: id,
-              name: state.studentNames[id],
-              flagged: state.suspiciousUsers[id]?.flagged,
-              stats: state.suspiciousUsers[id]
+              name: state.studentNames[id]
             }))
           });
         }
       }
-      console.log(`[SOCKET] User disconnected: ${socket.user.userId}`);
     });
+
   });
 };

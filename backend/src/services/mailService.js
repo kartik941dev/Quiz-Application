@@ -97,14 +97,14 @@ const buildHtmlTemplate = (quizTitle, studentName, attempt, pastAttempts = []) =
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>QuizMaster Report</title>
+      <title>AssessIQ Performance Report</title>
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f5f5f7; margin: 0; padding: 20px; color: #1d1d1f;">
       <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e5e5ea;">
         
         <!-- Header Banner -->
-        <div style="background: linear-gradient(135deg, #646cff 0%, #4a51e6 100%); padding: 35px 25px; text-align: center; color: #ffffff;">
-          <div style="font-size: 1.2rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; opacity: 0.9;">🎮 QuizMaster Platform</div>
+        <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 35px 25px; text-align: center; color: #ffffff;">
+          <div style="font-size: 1.2rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; opacity: 0.9;">⚡ AssessIQ Platform</div>
           <h1 style="margin: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px;">Performance Report</h1>
         </div>
 
@@ -174,8 +174,8 @@ const buildHtmlTemplate = (quizTitle, studentName, attempt, pastAttempts = []) =
 
         <!-- Footer -->
         <div style="background-color: #f5f5f7; border-top: 1px solid #e5e5ea; padding: 20px; text-align: center; font-size: 0.8rem; color: #86868b;">
-          This is an automated performance report from your QuizMaster account.<br>
-          &copy; ${new Date().getFullYear()} QuizMaster Platform. All Rights Reserved.
+          This is an automated performance report from your AssessIQ account.<br>
+          &copy; ${new Date().getFullYear()} AssessIQ Platform. All Rights Reserved.
         </div>
 
       </div>
@@ -209,7 +209,7 @@ exports.sendReportEmail = async (quizTitle, studentName, studentEmail, attempt) 
     const htmlContent = buildHtmlTemplate(quizTitle, studentName, attempt, pastAttempts);
 
     const mailOptions = {
-      from: process.env.SMTP_FROM || 'noreply@quizmaster.com',
+      from: process.env.SMTP_FROM || 'noreply@assessiq.com',
       to: studentEmail,
       subject: `🎯 Quiz Performance Report: ${quizTitle}`,
       html: htmlContent
