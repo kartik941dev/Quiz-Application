@@ -112,29 +112,55 @@ const AnalyticsDashboard = () => {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        <div className="glass-card" style={{ textAlign: 'center' }}>
-          <h4 style={{ color: 'rgba(255,255,255,0.6)', marginBottom: '0.5rem' }}>Avg. Completion Time</h4>
-          <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#4caf50' }}>
+      {/* Summary KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+        <div className="glass-card" style={{ textAlign: 'center', padding: '1.5rem' }}>
+          <h4 style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.88rem', fontWeight: 500 }}>Avg. Accuracy</h4>
+          <div style={{ fontSize: '2.25rem', fontWeight: '800', color: (data.overallAvgAccuracy || 0) >= 60 ? '#059669' : '#d97706', marginTop: '0.35rem' }}>
+            {data.overallAvgAccuracy || 0}%
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ textAlign: 'center', padding: '1.5rem' }}>
+          <h4 style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.88rem', fontWeight: 500 }}>Best Score</h4>
+          <div style={{ fontSize: '2.25rem', fontWeight: '800', color: 'var(--primary)', marginTop: '0.35rem' }}>
+            {data.bestScorePercentage || 0}%
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ textAlign: 'center', padding: '1.5rem' }}>
+          <h4 style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.88rem', fontWeight: 500 }}>Total Submissions</h4>
+          <div style={{ fontSize: '2.25rem', fontWeight: '800', color: 'var(--text-main)', marginTop: '0.35rem' }}>
+            {data.totalParticipants || data.topPerformers?.length || 0}
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ textAlign: 'center', padding: '1.5rem' }}>
+          <h4 style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.88rem', fontWeight: 500 }}>Avg. Completion Time</h4>
+          <div style={{ fontSize: '2.25rem', fontWeight: '800', color: '#0284c7', marginTop: '0.35rem' }}>
             {data.avgQuizTime}s
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
         {/* Accuracy Chart */}
         <div className="glass-card">
-          <h3 style={{ marginBottom: '1.5rem' }}>Accuracy per Question (%)</h3>
+          <h3 style={{ marginBottom: '1.25rem', color: 'var(--text-main)', fontSize: '1.15rem' }}>Accuracy per Question (%)</h3>
           <div style={{ height: '300px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.accuracyPerQuestion}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="questionIndex" stroke="#64748b" />
-                <YAxis stroke="#64748b" domain={[0, 100]} />
+                <XAxis dataKey="questionIndex" stroke="#64748b" tick={{ fontSize: 12 }} />
+                <YAxis stroke="#64748b" domain={[0, 100]} unit="%" />
                 <Tooltip 
+                  formatter={(val) => [`${val}%`, 'Accuracy']}
+                  labelFormatter={(label, payload) => {
+                    const item = payload && payload[0]?.payload;
+                    return item ? `${item.questionIndex}: ${item.questionText?.substring(0, 40)}...` : label;
+                  }}
                   contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                  itemStyle={{ color: '#0284c7' }}
+                  itemStyle={{ color: '#0284c7', fontWeight: 700 }}
                 />
                 <Bar dataKey="accuracy" fill="#0284c7" radius={[4, 4, 0, 0]} />
               </BarChart>
