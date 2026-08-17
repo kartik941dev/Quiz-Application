@@ -9,8 +9,9 @@ router.use(verifyToken);
 // Teacher only routes
 router.post('/', requireRole('teacher'), quizController.createQuiz);
 router.get('/my-quizzes', requireRole('teacher'), quizController.getTeacherQuizzes);
-router.post('/:id/duplicate', requireRole('teacher'), quizController.duplicateQuiz);
 router.get('/:id/full', requireRole('teacher'), quizController.getFullQuiz);
+router.put('/:id', requireRole('teacher'), quizController.updateQuiz);
+router.post('/:id/duplicate', requireRole('teacher'), quizController.duplicateQuiz);
 router.patch('/:id/close', requireRole('teacher'), quizController.closeQuiz);
 
 // Student only routes

@@ -1,5 +1,6 @@
 const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
+const QuestionBank = require('../models/QuestionBank');
 const crypto = require('crypto');
 
 // Helper to generate a 6-character uppercase alphanumeric code
@@ -9,7 +10,18 @@ const generateJoinCode = () => {
 
 exports.createQuiz = async (req, res) => {
   try {
-    const { title, leaderboardInterval, questions, negativeMarkingEnabled } = req.body;
+    const { 
+      title, 
+      progressionMode = 'auto_timer',
+      allowReattempt = false,
+      leaderboardInterval, 
+      showLeaderboard = true,
+      questions, 
+      negativeMarkingEnabled,
+      shuffleQuestions = true,
+      shuffleOptions = true,
+      saveToQuestionBank = false
+    } = req.body;
 
     if (!title || !questions || questions.length === 0) {
       return res.status(400).json({ success: false, message: 'Please provide a title and at least one question' });
@@ -19,14 +31,18 @@ exports.createQuiz = async (req, res) => {
     let quiz;
     let attempts = 0;
     
-    // Loop to handle the virtually impossible chance of a joinCode collision
     while (attempts < 5) {
       joinCode = generateJoinCode();
       quiz = new Quiz({
         title,
         joinCode,
         teacherId: req.user.userId,
-        leaderboardInterval: leaderboardInterval || 1,
+        allowReattempt: Boolean(allowReattempt),
+        progressionMode: progressionMode || 'auto_timer',
+        showLeaderboard: Boolean(showLeaderboard),
+        leaderboardInterval: Number(leaderboardInterval) || 1,
+        shuffleQuestions: Boolean(shuffleQuestions),
+        shuffleOptions: Boolean(shuffleOptions),
         questions,
         negativeMarkingEnabled: negativeMarkingEnabled || false
       });
@@ -37,9 +53,9 @@ exports.createQuiz = async (req, res) => {
       } catch (err) {
         if (err.code === 11000 && err.keyPattern && err.keyPattern.joinCode) {
           attempts++;
-          continue; // Try generating a new code
+          continue;
         }
-        throw err; // Rethrow other errors
+        throw err;
       }
     }
 
@@ -47,10 +63,118 @@ exports.createQuiz = async (req, res) => {
       return res.status(500).json({ success: false, message: 'Failed to generate unique join code. Please try again.' });
     }
 
+    // Optional: Save questions to the central Question Bank
+    if (saveToQuestionBank && Array.isArray(questions)) {
+      try {
+        const bankDocs = questions.map(q => ({
+          teacherId: req.user.userId,
+          text: q.text,
+          type: q.type || 'single_choice',
+          options: q.options || [],
+          correctOptionIndex: q.correctOptionIndex || 0,
+          correctOptionIndices: q.correctOptionIndices || [],
+          acceptedAnswers: q.acceptedAnswers || [],
+          codeLanguage: q.codeLanguage || 'javascript',
+          topic: q.topic || 'General',
+          difficulty: q.difficulty || 'medium',
+          timeLimit: q.timeLimit || 30,
+          marks: q.marks || 1,
+          negativeMarks: q.negativeMarks || 0,
+          explanation: q.explanation || ''
+        }));
+        await QuestionBank.insertMany(bankDocs);
+      } catch (bankErr) {
+        console.error('[QUIZ] Question bank sync warning:', bankErr);
+      }
+    }
+
     res.status(201).json({ success: true, message: 'Quiz created successfully', quiz });
   } catch (err) {
     console.error('[QUIZ] Create error:', err);
     res.status(500).json({ success: false, message: `Failed to create quiz: ${err.message}` });
+  }
+};
+
+exports.updateQuiz = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      title, 
+      progressionMode = 'auto_timer',
+      allowReattempt = false,
+      leaderboardInterval, 
+      showLeaderboard = true,
+      questions, 
+      negativeMarkingEnabled,
+      shuffleQuestions = true,
+      shuffleOptions = true,
+      saveToQuestionBank = false
+    } = req.body;
+
+    const quiz = await Quiz.findById(id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    if (quiz.teacherId.toString() !== req.user.userId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to edit this quiz' });
+    }
+
+    if (quiz.isClosed) {
+      return res.status(400).json({ success: false, message: 'Closed quizzes cannot be edited.' });
+    }
+
+    if (!title || !questions || questions.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please provide a title and at least one question' });
+    }
+
+    quiz.title = title;
+    quiz.progressionMode = progressionMode || 'auto_timer';
+    quiz.allowReattempt = Boolean(allowReattempt);
+    quiz.showLeaderboard = Boolean(showLeaderboard);
+    quiz.leaderboardInterval = Number(leaderboardInterval) || 1;
+    quiz.shuffleQuestions = Boolean(shuffleQuestions);
+    quiz.shuffleOptions = Boolean(shuffleOptions);
+    quiz.negativeMarkingEnabled = Boolean(negativeMarkingEnabled);
+    quiz.questions = questions;
+
+    await quiz.save();
+
+    // Auto save questions to Question Bank if enabled
+    if (saveToQuestionBank && Array.isArray(questions)) {
+      try {
+        const QuestionBank = require('../models/QuestionBank');
+        for (const q of questions) {
+          if (q.text && q.text.trim()) {
+            await QuestionBank.findOneAndUpdate(
+              { teacherId: req.user.userId, text: q.text.trim() },
+              {
+                text: q.text.trim(),
+                type: q.type || 'single_choice',
+                options: q.options || [],
+                correctOptionIndex: q.correctOptionIndex || 0,
+                correctOptionIndices: q.correctOptionIndices || [],
+                acceptedAnswers: q.acceptedAnswers || [],
+                codeLanguage: q.codeLanguage || 'javascript',
+                topic: q.topic || 'General',
+                difficulty: q.difficulty || 'medium',
+                timeLimit: q.timeLimit || 30,
+                explanation: q.explanation || '',
+                marks: q.marks || 1,
+                negativeMarks: q.negativeMarks || 0,
+                teacherId: req.user.userId
+              },
+              { upsert: true, new: true }
+            );
+          }
+        }
+      } catch (bankErr) {
+        console.error('[QUIZ] Question bank sync on edit error:', bankErr);
+      }
+    }
+
+    res.status(200).json({ success: true, message: 'Quiz updated successfully', quiz });
+  } catch (err) {
+    console.error('[QUIZ] Update error:', err);
+    res.status(500).json({ success: false, message: `Failed to update quiz: ${err.message}` });
   }
 };
 
@@ -68,7 +192,6 @@ exports.getFullQuiz = async (req, res) => {
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
     
-    // Authorization check: Only the teacher who created it can get full details
     if (quiz.teacherId.toString() !== req.user.userId) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
@@ -84,7 +207,6 @@ exports.duplicateQuiz = async (req, res) => {
     const originalQuiz = await Quiz.findById(req.params.id);
     if (!originalQuiz) return res.status(404).json({ success: false, message: 'Original quiz not found' });
 
-    // Authorization check
     if (originalQuiz.teacherId.toString() !== req.user.userId) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
@@ -93,24 +215,39 @@ exports.duplicateQuiz = async (req, res) => {
     let newQuiz;
     let attempts = 0;
 
-    const quizData = originalQuiz.toObject();
-    delete quizData._id;
-    delete quizData.createdAt;
-    delete quizData.updatedAt;
-    
-    quizData.title = `${quizData.title} (Copy)`;
-    quizData.teacherId = req.user.userId;
-
-    // Loop to handle joinCode collisions
     while (attempts < 5) {
       joinCode = generateJoinCode();
-      quizData.joinCode = joinCode;
-      
-      newQuiz = new Quiz(quizData);
+      newQuiz = new Quiz({
+        title: `${originalQuiz.title} (Copy)`,
+        joinCode,
+        teacherId: req.user.userId,
+        allowReattempt: Boolean(originalQuiz.allowReattempt),
+        progressionMode: originalQuiz.progressionMode || 'auto_timer',
+        leaderboardInterval: originalQuiz.leaderboardInterval,
+        showLeaderboard: originalQuiz.showLeaderboard,
+        shuffleQuestions: originalQuiz.shuffleQuestions,
+        shuffleOptions: originalQuiz.shuffleOptions,
+        negativeMarkingEnabled: originalQuiz.negativeMarkingEnabled,
+        questions: originalQuiz.questions.map(q => ({
+          text: q.text,
+          type: q.type || 'single_choice',
+          options: q.options,
+          correctOptionIndex: q.correctOptionIndex,
+          correctOptionIndices: q.correctOptionIndices || [],
+          acceptedAnswers: q.acceptedAnswers || [],
+          codeLanguage: q.codeLanguage || 'javascript',
+          topic: q.topic || 'General',
+          difficulty: q.difficulty || 'medium',
+          timeLimit: q.timeLimit,
+          explanation: q.explanation,
+          marks: q.marks,
+          negativeMarks: q.negativeMarks
+        }))
+      });
 
       try {
         await newQuiz.save();
-        break; // Successfully saved
+        break;
       } catch (err) {
         if (err.code === 11000 && err.keyPattern && err.keyPattern.joinCode) {
           attempts++;
@@ -121,7 +258,7 @@ exports.duplicateQuiz = async (req, res) => {
     }
 
     if (attempts >= 5) {
-      return res.status(500).json({ success: false, message: 'Failed to generate unique join code' });
+      return res.status(500).json({ success: false, message: 'Failed to generate unique join code for duplicated quiz.' });
     }
 
     res.status(201).json({ success: true, message: 'Quiz duplicated successfully', quiz: newQuiz });
@@ -131,80 +268,85 @@ exports.duplicateQuiz = async (req, res) => {
   }
 };
 
-// ==========================================
-// STUDENT/ANTI-CHEATING ENDPOINTS
-// ==========================================
-
 exports.joinQuiz = async (req, res) => {
   try {
     const { joinCode } = req.body;
-    
+
     if (!joinCode) {
       return res.status(400).json({ success: false, message: 'Please provide a join code' });
     }
 
-    const cleanCode = joinCode.trim().toUpperCase();
-    console.log(`[QUIZ] Attempting to join with code: "${cleanCode}"`);
-
-    const quiz = await Quiz.findOne({ joinCode: cleanCode });
+    const quiz = await Quiz.findOne({ joinCode: joinCode.trim().toUpperCase() });
     if (!quiz) {
-      console.log(`[QUIZ] Join failed: Quiz not found for code "${cleanCode}"`);
-      return res.status(404).json({ success: false, message: 'Quiz not found' });
+      return res.status(404).json({ success: false, message: 'Invalid Quiz Code' });
     }
 
     if (quiz.isClosed) {
-      console.log(`[QUIZ] Join failed: Quiz ${quiz._id} is permanently closed.`);
-      return res.status(403).json({ success: false, message: 'This quiz has been permanently closed.' });
+      return res.status(403).json({ success: false, message: 'This quiz has been closed by the teacher.' });
     }
 
-    console.log(`[QUIZ] Join success: Found quiz "${quiz.title}" for code "${cleanCode}"`);
+    let attempt = await QuizAttempt.findOne({ quizId: quiz._id, studentId: req.user.userId });
+    
+    if (attempt && attempt.completedAt) {
+      if (!quiz.allowReattempt) {
+        return res.status(403).json({ success: false, message: 'You have already completed this quiz. Reattempts are disabled by the teacher.' });
+      }
 
-    // Try to create the attempt
-    try {
-      const attempt = new QuizAttempt({
+      // If reattempts are allowed: reset attempt for clean retry
+      attempt.completedAt = null;
+      attempt.score = 0;
+      attempt.answers = [];
+      attempt.startedAt = new Date();
+      attempt.tabSwitchCount = 0;
+      attempt.fastAnswerCount = 0;
+      attempt.isFlagged = false;
+      await attempt.save();
+    }
+
+    if (!attempt) {
+      attempt = new QuizAttempt({
         quizId: quiz._id,
         studentId: req.user.userId,
-        answers: [],
         score: 0,
         totalQuestions: quiz.questions.length
       });
       await attempt.save();
-    } catch (err) {
-      // 11000 means they already have an attempt (compound index quizId + studentId)
-      // This is fine, we just let them resume the quiz
-      if (err.code !== 11000) {
-        throw err;
-      }
-      // Note: If you want to rigidly block users who have already *completed* the quiz,
-      // you could fetch the attempt and check if `attempt.answers.length === totalQuestions` 
-      // but for now, we just let them navigate to the quiz view.
     }
 
     res.status(200).json({
       success: true,
+      message: 'Joined quiz successfully',
       quizId: quiz._id,
-      title: quiz.title
+      title: quiz.title,
+      progressionMode: quiz.progressionMode || 'auto_timer',
+      allowReattempt: Boolean(quiz.allowReattempt),
+      attemptId: attempt._id
     });
   } catch (err) {
     console.error('[QUIZ] Join error:', err);
-    res.status(500).json({ success: false, message: 'Server error joining quiz' });
+    res.status(500).json({ success: false, message: 'Failed to join quiz' });
   }
 };
 
-exports.getQuizForStudent = async (req, res) => {
+exports.getQuizById = async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
 
-    // SECURITY: Create a sanitized copy of the quiz without correct options or explanations
     const sanitizedQuiz = {
       _id: quiz._id,
       title: quiz.title,
+      joinCode: quiz.joinCode,
+      allowReattempt: Boolean(quiz.allowReattempt),
+      progressionMode: quiz.progressionMode || 'auto_timer',
+      showLeaderboard: quiz.showLeaderboard !== false,
       leaderboardInterval: quiz.leaderboardInterval,
       questions: quiz.questions.map(q => ({
         _id: q._id,
         text: q.text,
+        type: q.type || 'single_choice',
         options: q.options,
+        codeLanguage: q.codeLanguage,
         timeLimit: q.timeLimit,
         marks: q.marks
       }))
@@ -216,10 +358,12 @@ exports.getQuizForStudent = async (req, res) => {
   }
 };
 
+exports.getQuizForStudent = exports.getQuizById;
+
 exports.submitQuiz = async (req, res) => {
   try {
     const { id } = req.params;
-    const { answers } = req.body; // Expecting array: [{ questionId, selectedOptionIndex }]
+    const { answers } = req.body;
 
     if (!answers || !Array.isArray(answers)) {
       return res.status(400).json({ success: false, message: 'Invalid answers format' });
@@ -241,32 +385,47 @@ exports.submitQuiz = async (req, res) => {
       return res.status(403).json({ success: false, message: 'This quiz is permanently closed.' });
     }
 
-    // Calculate score
     let score = 0;
     const processedAnswers = [];
 
     quiz.questions.forEach(q => {
       const studentAnswer = answers.find(a => a.questionId === q._id.toString());
-      const isCorrect = studentAnswer && studentAnswer.selectedOptionIndex === q.correctOptionIndex;
-      const marksAwarded = isCorrect ? (q.marks || 1) : (quiz.negativeMarkingEnabled ? -(q.negativeMarks || 0) : 0);
-
-      if (isCorrect) {
-        score += q.marks || 1;
-      } else if (studentAnswer && quiz.negativeMarkingEnabled) {
-        score -= q.negativeMarks || 0;
-      }
-      
       if (studentAnswer) {
+        let isCorrect = false;
+        const qType = q.type || 'single_choice';
+
+        if (qType === 'single_choice' || qType === 'true_false') {
+          isCorrect = studentAnswer.selectedOptionIndex === q.correctOptionIndex;
+        } else if (qType === 'multiple_choice') {
+          const sIndices = new Set(studentAnswer.selectedOptionIndices || []);
+          const cIndices = new Set(q.correctOptionIndices || []);
+          isCorrect = sIndices.size === cIndices.size && [...sIndices].every(x => cIndices.has(x));
+        } else if (qType === 'fill_in_the_blank') {
+          const val = (studentAnswer.textResponse || '').trim().toLowerCase();
+          isCorrect = (q.acceptedAnswers || []).some(a => a.trim().toLowerCase() === val);
+        } else if (qType === 'essay_code') {
+          isCorrect = Boolean((studentAnswer.textResponse || '').trim());
+        }
+
+        const marksAwarded = isCorrect ? (q.marks || 1) : (quiz.negativeMarkingEnabled ? -(q.negativeMarks || 0) : 0);
+
+        if (isCorrect) {
+          score += (q.marks || 1);
+        } else if (quiz.negativeMarkingEnabled) {
+          score -= (q.negativeMarks || 0);
+        }
+
         processedAnswers.push({
           questionId: q._id,
           selectedOptionIndex: studentAnswer.selectedOptionIndex,
+          selectedOptionIndices: studentAnswer.selectedOptionIndices || [],
+          textResponse: studentAnswer.textResponse || '',
           isCorrect,
           marksAwarded
         });
       }
     });
 
-    // Update Attempt
     attempt.answers = processedAnswers;
     attempt.score = score;
     attempt.completedAt = new Date();
@@ -287,27 +446,29 @@ exports.getQuizResults = async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Fetch attempt
     const attempt = await QuizAttempt.findOne({ quizId: id, studentId: req.user.userId });
     if (!attempt) return res.status(404).json({ success: false, message: 'No attempt found for this quiz' });
 
-    // Fetch full quiz details (including correct answers and explanations)
     const quiz = await Quiz.findById(id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
 
-    // Merge data for frontend convenience
     const results = quiz.questions.map(q => {
       const studentAnswer = attempt.answers.find(a => a.questionId.toString() === q._id.toString());
       
-      // TRUST THE BACKEND STORED VALUE (studentAnswer.isCorrect)
-      // This is crucial because of shuffling!
       return {
         _id: q._id,
         text: q.text,
+        type: q.type || 'single_choice',
         options: q.options,
+        codeLanguage: q.codeLanguage,
+        acceptedAnswers: q.acceptedAnswers,
         timeLimit: q.timeLimit,
         explanation: q.explanation,
         correctOptionIndex: q.correctOptionIndex,
+        correctOptionIndices: q.correctOptionIndices || [],
         userSelectedOptionIndex: studentAnswer ? studentAnswer.selectedOptionIndex : null,
+        userSelectedOptionIndices: studentAnswer ? studentAnswer.selectedOptionIndices : [],
+        userTextResponse: studentAnswer ? studentAnswer.textResponse : '',
         isCorrect: studentAnswer ? studentAnswer.isCorrect : false,
         marksAwarded: studentAnswer ? studentAnswer.marksAwarded : 0,
         questionMarks: q.marks,
@@ -322,6 +483,8 @@ exports.getQuizResults = async (req, res) => {
       score: attempt.score,
       totalQuestions: attempt.totalQuestions,
       totalMarks,
+      allowReattempt: Boolean(quiz.allowReattempt),
+      joinCode: quiz.joinCode,
       results
     });
   } catch (err) {
@@ -339,7 +502,6 @@ exports.closeQuiz = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
-    // Only the creator can close it
     if (quiz.teacherId.toString() !== req.user.userId) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
