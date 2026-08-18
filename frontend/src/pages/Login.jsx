@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import BrandLogo from '../components/BrandLogo';
-import { Sparkles, LogIn, Mail, Lock, ArrowRight, Zap, Trophy, BarChart3, GraduationCap } from 'lucide-react';
+import { Mail, Lock, LogIn, ArrowRight } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -34,130 +34,139 @@ const Login = () => {
         navigate('/student-dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Network error: Could not connect to backend server');
+      setError(err.response?.data?.message || 'Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-page-container">
-      <div className="auth-card-wrapper">
-        {/* Left Hero Pane */}
-        <div className="auth-hero-pane">
-          <div>
-            <div style={{ marginBottom: '2rem' }}>
-              <BrandLogo size={42} showText={true} />
-            </div>
-
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }} className="badge badge-blue">
-              <Sparkles size={14} /> Enterprise Assessment Suite
-            </div>
-            <h1 style={{ fontSize: '2.3rem', lineHeight: '1.2', color: 'var(--text-main)', marginBottom: '1rem' }}>
-              Precision Evaluation in <span className="gradient-text">Real-Time</span>
-            </h1>
-            <p style={{ color: 'var(--text-body)', fontSize: '0.96rem', lineHeight: '1.6', marginBottom: '2rem' }}>
-              Empowering institutions and students with synchronous live testing, automated analytics, and deep performance metrics.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', color: 'var(--text-body)', fontSize: '0.9rem' }}>
-                <div style={{ padding: '0.45rem', borderRadius: '8px', background: '#ffffff', border: '1px solid var(--border-subtle)', color: 'var(--primary)', display: 'flex', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-                  <Zap size={16} />
-                </div>
-                <span>Live interactive multiplayer quiz sessions</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', color: 'var(--text-body)', fontSize: '0.9rem' }}>
-                <div style={{ padding: '0.45rem', borderRadius: '8px', background: '#ffffff', border: '1px solid var(--border-subtle)', color: 'var(--primary)', display: 'flex', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-                  <Trophy size={16} />
-                </div>
-                <span>Dynamic real-time leaderboards & scoring</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', color: 'var(--text-body)', fontSize: '0.9rem' }}>
-                <div style={{ padding: '0.45rem', borderRadius: '8px', background: '#ffffff', border: '1px solid var(--border-subtle)', color: 'var(--primary)', display: 'flex', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-                  <BarChart3 size={16} />
-                </div>
-                <span>Detailed topic breakdown & exportable insights</span>
-              </div>
-            </div>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '2rem 1.5rem',
+      background: 'linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%)'
+    }}>
+      <div style={{
+        maxWidth: '440px',
+        width: '100%',
+        background: '#ffffff',
+        border: '1px solid #e2e8f0',
+        borderRadius: '16px',
+        boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04)',
+        padding: '2.5rem 2rem'
+      }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+            <BrandLogo size={44} showText={true} />
           </div>
-
-          <div style={{ marginTop: '2rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#059669' }}></div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>System Operational</span>
-            </div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>v2.0 Pro</span>
-          </div>
+          <h1 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a', margin: '0 0 0.4rem 0' }}>
+            Welcome Back
+          </h1>
+          <p style={{ color: '#64748b', fontSize: '0.92rem', margin: 0 }}>
+            Enter your credentials to access your dashboard
+          </p>
         </div>
 
-        {/* Right Form Pane */}
-        <div className="auth-form-pane">
-          <div style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontSize: '1.85rem', color: 'var(--text-main)', marginBottom: '0.4rem' }}>Login to Account</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', margin: 0 }}>
-              Enter your credentials to access your dashboard
-            </p>
+        {error && (
+          <div style={{
+            padding: '0.75rem 1rem',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#dc2626',
+            borderRadius: '8px',
+            fontSize: '0.86rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+              Email Address
+            </label>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Mail size={18} style={{ position: 'absolute', left: '1rem', color: '#94a3b8', pointerEvents: 'none' }} />
+              <input
+                type="email"
+                className="form-control"
+                style={{ paddingLeft: '2.75rem', fontSize: '0.95rem' }}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="name@example.com"
+                autoComplete="email"
+              />
+            </div>
           </div>
 
-          {error && (
-            <div className="error-message">
-              <span>⚠️</span>
-              <span>{error}</span>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+              Password
+            </label>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Lock size={18} style={{ position: 'absolute', left: '1rem', color: '#94a3b8', pointerEvents: 'none' }} />
+              <input
+                type="password"
+                className="form-control"
+                style={{ paddingLeft: '2.75rem', fontSize: '0.95rem' }}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+                autoComplete="current-password"
+              />
             </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>Email Address</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <input
-                  type="email"
-                  className="form-control"
-                  style={{ paddingLeft: '2.75rem' }}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  placeholder="name@example.com"
-                />
-                <Mail size={18} style={{ position: 'absolute', left: '1rem', color: 'var(--text-dim)', pointerEvents: 'none' }} />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <label style={{ margin: 0 }}>Password</label>
-              </div>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <input
-                  type="password"
-                  className="form-control"
-                  style={{ paddingLeft: '2.75rem' }}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                />
-                <Lock size={18} style={{ position: 'absolute', left: '1rem', color: 'var(--text-dim)', pointerEvents: 'none' }} />
-              </div>
-            </div>
-
-            <button type="submit" className="btn" disabled={loading} style={{ marginTop: '1.5rem' }}>
-              {loading ? (
-                'Signing in...'
-              ) : (
-                <>
-                  <LogIn size={18} />
-                  <span>Sign In</span>
-                  <ArrowRight size={16} />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="link-text">
-            Don't have an account? <Link to="/register">Register here</Link>
           </div>
+
+          <button
+            type="submit"
+            className="btn"
+            disabled={loading}
+            style={{
+              marginTop: '0.5rem',
+              padding: '0.75rem',
+              fontSize: '1rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            {loading ? (
+              'Signing in...'
+            ) : (
+              <>
+                <LogIn size={18} />
+                <span>Sign In</span>
+              </>
+            )}
+          </button>
+        </form>
+
+        <div style={{
+          textAlign: 'center',
+          marginTop: '1.75rem',
+          paddingTop: '1.25rem',
+          borderTop: '1px solid #f1f5f9',
+          fontSize: '0.9rem',
+          color: '#64748b'
+        }}>
+          Don't have an account?{' '}
+          <Link to="/register" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'none' }}>
+            Register here
+          </Link>
         </div>
       </div>
     </div>
